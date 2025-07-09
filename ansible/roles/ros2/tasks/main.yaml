@@ -28,8 +28,8 @@
     create: true
   become: true
   loop:
-    - {key: "LC_ALL", value: "en_US.UTF-8"}
-    - {key: "LANG", value: "en_US.UTF-8"}
+    - { key: "LC_ALL", value: "en_US.UTF-8" }
+    - { key: "LANG", value: "en_US.UTF-8" }
 
 - name: Install required packages for ROS2
   ansible.builtin.apt:
