@@ -11,7 +11,7 @@ on:
       ros2_distro:
         description: 'ROS2 Distribution'
         required: true
-        default: 'humble'
+        default: 'jazzy'
         type: choice
         options:
           - humble
@@ -20,7 +20,7 @@ on:
       ubuntu_version:
         description: 'Ubuntu Version'
         required: true
-        default: '22.04'
+        default: '24.04'
         type: choice
         options:
           - '22.04'
@@ -77,9 +77,13 @@ jobs:
     needs: validate-ansible
     strategy:
       matrix:
-        architecture: [arm64, amd64]
-        ubuntu_version: ['22.04']
-        ros2_distro: [humble]
+        include:
+          - architecture: amd64
+            ubuntu_version: '22.04'
+            ros2_distro: humble
+          - architecture: arm64
+            ubuntu_version: '24.04'
+            ros2_distro: jazzy
     
     steps:
       - name: Checkout code

@@ -23,14 +23,14 @@
 
   pre_tasks:
     - name: Verify target architecture
-      assert:
+      ansible.builtin.assert:
         that:
           - ansible_architecture == "x86_64"
         fail_msg: "This playbook is designed for AMD64/x86_64 architecture only. Current: {{ ansible_architecture }}"
         success_msg: "Architecture verification passed: {{ ansible_architecture }}"
 
     - name: Display system information
-      debug:
+      ansible.builtin.debug:
         msg:
           - "Target Host: {{ inventory_hostname }}"
           - "OS: {{ ansible_distribution }} {{ ansible_distribution_version }}"
@@ -38,23 +38,27 @@
           - "ROS2 Distribution: {{ ros2_distro }}"
 
     - name: Check Ubuntu version compatibility
-      assert:
+      ansible.builtin.assert:
         that:
           - ansible_distribution == "Ubuntu"
           - ansible_distribution_version is version('20.04', '>=')
-        fail_msg: "This playbook requires Ubuntu 20.04 or later. Current: {{ ansible_distribution }} {{ ansible_distribution_version }}"
-        success_msg: "Ubuntu version check passed: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+        fail_msg: >-
+          This playbook requires Ubuntu 20.04 or later.
+          Current: {{ ansible_distribution }} {{ ansible_distribution_version }}
+        success_msg: >-
+          Ubuntu version check passed: {{ ansible_distribution }}
+          {{ ansible_distribution_version }}
 
   roles:
     - role: ros2
       vars:
         ros2_distro: "{{ ros2_distro }}"
-        install_dev_tools: "{{ install_dev_tools }}"
+        ros2_install_dev_tools: "{{ install_dev_tools }}"
         ros2_additional_packages: "{{ ros2_additional_packages }}"
 
   post_tasks:
     - name: Install development utilities
-      apt:
+      ansible.builtin.apt:
         name:
           - git
           - wget
@@ -70,7 +74,7 @@
         update_cache: true
 
     - name: Create development workspace directory
-      file:
+      ansible.builtin.file:
         path: "{{ ansible_env.HOME }}/ros2_ws/src"
         state: directory
         owner: "{{ ansible_user | default(ansible_env.USER) }}"
@@ -79,7 +83,7 @@
       become: false
 
     - name: Add ROS2 workspace setup to bashrc
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: "{{ ansible_env.HOME }}/.bashrc"
         line: "{{ item }}"
         state: present
@@ -95,7 +99,7 @@
         - "alias ct='cd $COLCON_WS && colcon test'"
 
     - name: Display completion message
-      debug:
+      ansible.builtin.debug:
         msg:
           - "✅ ROS2 development environment setup completed!"
           - "🏗️  Workspace created at: {{ ansible_env.HOME }}/ros2_ws"

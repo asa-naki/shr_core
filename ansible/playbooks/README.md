@@ -16,7 +16,7 @@
 
 ### setup_kit.yaml (ARM64 Raspberry Pi 5向け)
 
-- **対象**: ARM64 Raspberry Pi 5 (Ubuntu 22.04)
+- **対象**: ARM64 Raspberry Pi 5 (Ubuntu 24.04)
 - **用途**: ロボティクスキット環境のセットアップ
 - **特徴**:
   - ROS2 Humble ロボティクス向けパッケージ

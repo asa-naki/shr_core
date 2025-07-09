@@ -7,22 +7,22 @@
   become: true
   gather_facts: true
   vars:
-    ros2_distro: humble
+    ros2_distro: jazzy
     target_architecture: arm64
     install_dev_tools: true
-    target_ubuntu_version: "22.04"
+    target_ubuntu_version: "24.04"
     ros2_additional_packages:
-      - ros-humble-example-interfaces
-      - ros-humble-demo-nodes-cpp
-      - ros-humble-demo-nodes-py
-      - ros-humble-rqt-common-plugins
-      - ros-humble-robot-state-publisher
-      - ros-humble-joint-state-publisher
-      - ros-humble-tf2-tools
-      - ros-humble-tf2-ros
-      - ros-humble-geometry-msgs
-      - ros-humble-sensor-msgs
-      - ros-humble-std-msgs
+      - ros-jazzy-example-interfaces
+      - ros-jazzy-demo-nodes-cpp
+      - ros-jazzy-demo-nodes-py
+      - ros-jazzy-rqt-common-plugins
+      - ros-jazzy-robot-state-publisher
+      - ros-jazzy-joint-state-publisher
+      - ros-jazzy-tf2-tools
+      - ros-jazzy-tf2-ros
+      - ros-jazzy-geometry-msgs
+      - ros-jazzy-sensor-msgs
+      - ros-jazzy-std-msgs
       - python3-colcon-common-extensions
       - python3-rosdep
       - python3-vcstool
@@ -30,14 +30,14 @@
 
   pre_tasks:
     - name: Verify target architecture
-      assert:
+      ansible.builtin.assert:
         that:
           - ansible_architecture == "aarch64"
         fail_msg: "This playbook is designed for ARM64/aarch64 architecture only. Current: {{ ansible_architecture }}"
         success_msg: "Architecture verification passed: {{ ansible_architecture }}"
 
     - name: Display system information
-      debug:
+      ansible.builtin.debug:
         msg:
           - "Target Host: {{ inventory_hostname }}"
           - "OS: {{ ansible_distribution }} {{ ansible_distribution_version }}"
@@ -46,15 +46,20 @@
           - "Target: Raspberry Pi 5 Robotics Kit"
 
     - name: Check Ubuntu version compatibility for Raspberry Pi 5
-      assert:
+      ansible.builtin.assert:
         that:
           - ansible_distribution == "Ubuntu"
           - ansible_distribution_version == target_ubuntu_version
-        fail_msg: "This playbook is optimized for Ubuntu {{ target_ubuntu_version }} on Raspberry Pi 5. Current: {{ ansible_distribution }} {{ ansible_distribution_version }}"
-        success_msg: "Ubuntu version check passed: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+        fail_msg: >-
+          This playbook is optimized for Ubuntu {{ target_ubuntu_version }} on
+          Raspberry Pi 5. Current: {{ ansible_distribution }}
+          {{ ansible_distribution_version }}
+        success_msg: >-
+          Ubuntu version check passed: {{ ansible_distribution }}
+          {{ ansible_distribution_version }}
 
     - name: Check if running on Raspberry Pi
-      shell: |
+      ansible.builtin.shell: |
         if [ -f /proc/device-tree/model ]; then
           cat /proc/device-tree/model
         else
@@ -64,19 +69,19 @@
       changed_when: false
 
     - name: Display Raspberry Pi model
-      debug:
+      ansible.builtin.debug:
         msg: "Detected device: {{ pi_model.stdout }}"
 
   roles:
     - role: ros2
       vars:
         ros2_distro: "{{ ros2_distro }}"
-        install_dev_tools: "{{ install_dev_tools }}"
+        ros2_install_dev_tools: "{{ install_dev_tools }}"
         ros2_additional_packages: "{{ ros2_additional_packages }}"
 
   post_tasks:
     - name: Install Raspberry Pi specific utilities
-      apt:
+      ansible.builtin.apt:
         name:
           - git
           - wget
@@ -99,7 +104,7 @@
         update_cache: true
 
     - name: Install Python packages for robotics
-      pip:
+      ansible.builtin.pip:
         name:
           - RPi.GPIO
           - gpiozero
@@ -109,7 +114,7 @@
       become: false
 
     - name: Enable I2C interface
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /boot/firmware/config.txt
         regexp: "^#?dtparam=i2c_arm="
         line: "dtparam=i2c_arm=on"
@@ -117,7 +122,7 @@
       notify: reboot_required
 
     - name: Enable SPI interface
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /boot/firmware/config.txt
         regexp: "^#?dtparam=spi="
         line: "dtparam=spi=on"
@@ -125,13 +130,13 @@
       notify: reboot_required
 
     - name: Add user to gpio group
-      user:
+      ansible.builtin.user:
         name: "{{ ansible_user | default(ansible_env.USER) }}"
         groups: gpio
         append: true
 
     - name: Create robotics workspace directory
-      file:
+      ansible.builtin.file:
         path: "{{ ansible_env.HOME }}/robot_ws/src"
         state: directory
         owner: "{{ ansible_user | default(ansible_env.USER) }}"
@@ -140,7 +145,7 @@
       become: false
 
     - name: Add ROS2 robotics workspace setup to bashrc
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: "{{ ansible_env.HOME }}/.bashrc"
         line: "{{ item }}"
         state: present
@@ -157,7 +162,7 @@
         - "alias gpio_status='raspi-gpio get'"
 
     - name: Create udev rules for common robotics hardware
-      copy:
+      ansible.builtin.copy:
         content: |
           # USB Serial devices
           SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", SYMLINK+="robot_serial"
@@ -173,7 +178,7 @@
       notify: reload_udev
 
     - name: Display completion message
-      debug:
+      ansible.builtin.debug:
         msg:
           - "🤖 ROS2 robotics kit environment setup completed for Raspberry Pi 5!"
           - "🏗️  Workspace created at: {{ ansible_env.HOME }}/robot_ws"
@@ -191,10 +196,10 @@
 
   handlers:
     - name: reboot_required
-      debug:
+      ansible.builtin.debug:
         msg: "System reboot is required to enable hardware interfaces"
 
     - name: reload_udev
-      systemd:
+      ansible.builtin.systemd:
         name: udev
         state: reloaded

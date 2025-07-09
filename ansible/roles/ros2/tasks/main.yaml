@@ -2,30 +2,37 @@
 # ROS2 Installation Tasks (Following official documentation)
 
 - name: Update apt cache
-  apt:
+  ansible.builtin.apt:
     update_cache: true
     cache_valid_time: 3600
   become: true
 
-- name: Set locale for UTF-8 support
-  locale_gen:
-    name: en_US.UTF-8
+- name: Install locales package
+  ansible.builtin.apt:
+    name: locales
     state: present
   become: true
 
+- name: Set locale for UTF-8 support
+  ansible.builtin.shell: |
+    locale-gen en_US.UTF-8
+    update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+  become: true
+  changed_when: false
+
 - name: Update locale settings
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/default/locale
     regexp: "^{{ item.key }}="
     line: "{{ item.key }}={{ item.value }}"
     create: true
   become: true
   loop:
-    - { key: "LC_ALL", value: "en_US.UTF-8" }
-    - { key: "LANG", value: "en_US.UTF-8" }
+    - {key: "LC_ALL", value: "en_US.UTF-8"}
+    - {key: "LANG", value: "en_US.UTF-8"}
 
 - name: Install required packages for ROS2
-  apt:
+  ansible.builtin.apt:
     name:
       - software-properties-common
       - curl
@@ -36,46 +43,49 @@
   become: true
 
 - name: Ensure Universe repository is enabled
-  apt_repository:
+  ansible.builtin.apt_repository:
     repo: "deb http://archive.ubuntu.com/ubuntu {{ ansible_distribution_release }} universe"
     state: present
   become: true
 
 - name: Get latest ros2-apt-source package version
-  uri:
+  ansible.builtin.uri:
     url: https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest
     method: GET
     return_content: true
   register: ros_apt_source_release
 
 - name: Set ros2-apt-source version variable
-  set_fact:
+  ansible.builtin.set_fact:
     ros2_apt_source_version: "{{ ros_apt_source_release.json.tag_name }}"
 
 - name: Download ros2-apt-source package
-  get_url:
-    url: "https://github.com/ros-infrastructure/ros-apt-source/releases/download/{{ ros2_apt_source_version }}/ros2-apt-source_{{ ros2_apt_source_version }}.{{ ansible_distribution_release }}_all.deb"
+  ansible.builtin.get_url:
+    url: >-
+      https://github.com/ros-infrastructure/ros-apt-source/releases/download/{{
+      ros2_apt_source_version }}/ros2-apt-source_{{ ros2_apt_source_version }}.{{
+      ansible_distribution_release }}_all.deb
     dest: "/tmp/ros2-apt-source.deb"
     mode: "0644"
 
 - name: Install ros2-apt-source package
-  apt:
+  ansible.builtin.apt:
     deb: "/tmp/ros2-apt-source.deb"
     state: present
   become: true
 
 - name: Remove temporary ros2-apt-source package file
-  file:
+  ansible.builtin.file:
     path: "/tmp/ros2-apt-source.deb"
     state: absent
 
 - name: Update apt cache after adding ROS2 repository
-  apt:
+  ansible.builtin.apt:
     update_cache: true
   become: true
 
 - name: Install ROS2 development tools and common packages
-  apt:
+  ansible.builtin.apt:
     name:
       - python3-flake8-docstrings
       - python3-pip
@@ -85,7 +95,7 @@
   become: true
 
 - name: Install Ubuntu version specific packages (22.04 and later)
-  apt:
+  ansible.builtin.apt:
     name:
       - python3-flake8-blind-except
       - python3-flake8-builtins
@@ -101,50 +111,72 @@
   when: ansible_distribution_version is version('22.04', '>=')
 
 - name: Install ROS2 Desktop Full
-  apt:
+  ansible.builtin.apt:
     name: ros-{{ ros2_distro | default('humble') }}-desktop
     state: present
   become: true
 
 - name: Initialize rosdep
-  shell: rosdep init
+  ansible.builtin.command: rosdep init
   args:
     creates: /etc/ros/rosdep/sources.list.d/20-default.list
   become: true
-  ignore_errors: true
+  failed_when: false
 
 - name: Update rosdep
-  shell: rosdep update
+  ansible.builtin.command: rosdep update
   become: false
   changed_when: false
 
 - name: Create ROS2 setup script in user's bashrc
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: "{{ ansible_env.HOME }}/.bashrc"
     line: "source /opt/ros/{{ ros2_distro | default('humble') }}/setup.bash"
     state: present
     create: true
 
 - name: Create ROS2 setup script in user's profile
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: "{{ ansible_env.HOME }}/.profile"
     line: "source /opt/ros/{{ ros2_distro | default('humble') }}/setup.bash"
     state: present
     create: true
 
 - name: Verify ROS2 installation
-  shell: |
+  ansible.builtin.shell: |
     source /opt/ros/{{ ros2_distro | default('humble') }}/setup.bash && ros2 --version
   register: ros2_version
   changed_when: false
   ignore_errors: true
 
 - name: Display ROS2 version
-  debug:
+  ansible.builtin.debug:
     msg: "ROS2 installed successfully: {{ ros2_version.stdout }}"
   when: ros2_version.rc == 0
 
 - name: Display installation failure message
-  debug:
+  ansible.builtin.debug:
     msg: "ROS2 installation verification failed: {{ ros2_version.stderr }}"
   when: ros2_version.rc != 0
+
+# Install additional development tools if requested
+- name: Install additional development tools
+  ansible.builtin.apt:
+    name:
+      - colcon-common-extensions
+      - python3-colcon-bash
+      - python3-colcon-core
+      - python3-vcstool
+      - python3-rosdep
+      - python3-argcomplete
+    state: present
+  become: true
+  when: ros2_install_dev_tools | default(false)
+
+# Install additional ROS2 packages if specified
+- name: Install additional ROS2 packages
+  ansible.builtin.apt:
+    name: "{{ ros2_additional_packages }}"
+    state: present
+  become: true
+  when: ros2_additional_packages is defined and ros2_additional_packages | length > 0

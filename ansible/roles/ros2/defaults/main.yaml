@@ -2,7 +2,8 @@
 # Default variables for ROS2 role
 
 # ROS2 distribution to install (humble, iron, jazzy, etc.)
-ros2_distro: humble
+# Default to humble for AMD64, jazzy for ARM64
+ros2_distro: "{{ 'jazzy' if ansible_architecture == 'aarch64' else 'humble' }}"
 
 # Architecture support
 ros2_architecture:
@@ -16,4 +17,4 @@ ros2_additional_packages: []
 ros2_apt_source_repo: "https://github.com/ros-infrastructure/ros-apt-source"
 
 # Development tools flag
-install_dev_tools: true
+ros2_install_dev_tools: true

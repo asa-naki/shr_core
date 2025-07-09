@@ -16,7 +16,7 @@ This project provides a complete automation pipeline using Ansible and GitHub Ac
 ### 🍓 Robotics Kit (ARM64 - Raspberry Pi 5)
 
 - **Target**: Raspberry Pi 5 robotics projects
-- **OS**: Ubuntu 22.04 LTS optimized for Raspberry Pi 5
+- **OS**: Ubuntu 24.04 LTS with ROS2 Jazzy
 - **Hardware**: GPIO, I2C, SPI interfaces pre-configured
 - **Tools**: Robotics libraries, hardware abstraction layers
 - **Workspace**: Pre-configured `~/robot_ws`
@@ -36,7 +36,7 @@ This project provides a complete automation pipeline using Ansible and GitHub Ac
 
    ```bash
    # For Raspberry Pi 5 (ARM64)
-   sudo dd if=ros2-robotics-kit-arm64-ubuntu22.04-ros2humble.iso of=/dev/sdX bs=4M status=progress
+   sudo dd if=ros2-robotics-kit-arm64-ubuntu24.04-ros2jazzy.iso of=/dev/sdX bs=4M status=progress
    
    # For PC/Laptop (AMD64) 
    sudo dd if=ros2-robotics-kit-amd64-ubuntu22.04-ros2humble.iso of=/dev/sdX bs=4M status=progress
@@ -107,8 +107,8 @@ Customize builds by setting environment variables:
 # Use different ROS2 distribution
 make build-dev ROS2_DISTRO=iron
 
-# Target different Ubuntu version  
-make build-kit UBUNTU_VERSION=24.04
+# Target different Ubuntu version (override defaults)
+make build-kit UBUNTU_VERSION=22.04  # Force older version for ARM64
 
 # Custom architecture
 make _build ARCHITECTURE=amd64 ROS2_DISTRO=jazzy

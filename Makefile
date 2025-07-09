@@ -8,6 +8,12 @@ ROS2_DISTRO ?= humble
 UBUNTU_VERSION ?= 22.04
 ARCHITECTURE ?= amd64
 
+# Architecture-specific configurations
+UBUNTU_VERSION_AMD64 ?= 22.04
+UBUNTU_VERSION_ARM64 ?= 24.04
+ROS2_DISTRO_AMD64 ?= humble
+ROS2_DISTRO_ARM64 ?= jazzy
+
 help: ## Show this help message
 	@echo "ROS2 Robotics Kit ISO Builder"
 	@echo ""
@@ -43,19 +49,19 @@ setup-deps: ## Install build dependencies
 test-ansible: ## Test and validate Ansible playbooks
 	@echo "🧪 Testing Ansible playbooks..."
 	yamllint ansible/
-	ansible-lint ansible/playbooks/setup_dev.yaml
-	ansible-lint ansible/playbooks/setup_kit.yaml
-	ansible-playbook --syntax-check ansible/playbooks/setup_dev.yaml
-	ansible-playbook --syntax-check ansible/playbooks/setup_kit.yaml
+	cd ansible && ansible-lint playbooks/setup_dev.yaml
+	cd ansible && ansible-lint playbooks/setup_kit.yaml
+	cd ansible && ansible-playbook --syntax-check playbooks/setup_dev.yaml
+	cd ansible && ansible-playbook --syntax-check playbooks/setup_kit.yaml
 	@echo "✅ Ansible playbooks validated"
 
 build-dev: test-ansible ## Build development ISO (AMD64)
 	@echo "🏗️  Building development ISO for AMD64..."
-	@$(MAKE) _build ARCHITECTURE=amd64
+	@$(MAKE) _build ARCHITECTURE=amd64 UBUNTU_VERSION=$(UBUNTU_VERSION_AMD64) ROS2_DISTRO=$(ROS2_DISTRO_AMD64)
 
 build-kit: test-ansible ## Build robotics kit ISO (ARM64)
 	@echo "🏗️  Building robotics kit ISO for ARM64..."
-	@$(MAKE) _build ARCHITECTURE=arm64
+	@$(MAKE) _build ARCHITECTURE=arm64 UBUNTU_VERSION=$(UBUNTU_VERSION_ARM64) ROS2_DISTRO=$(ROS2_DISTRO_ARM64)
 
 build-both: test-ansible ## Build both development and kit ISOs
 	@echo "🏗️  Building both ISO variants..."
@@ -127,29 +133,27 @@ docker-build: ## Build ISO in Docker container (experimental)
 
 release-notes: ## Generate release notes template
 	@echo "📝 Generating release notes template..."
-	@cat > /tmp/release-notes.md << 'EOF'
-# ROS2 Robotics Kit ISO Release
-	
-## 🚀 Features
-- Pre-configured ROS2 $(ROS2_DISTRO) environment
-- Ubuntu $(UBUNTU_VERSION) base system
-- Robotics development tools included
-- Hardware abstraction for Raspberry Pi 5 (ARM64)
-- Development environment for PC/laptop (AMD64)
-	
-## 📦 Images
-- `ros2-robotics-kit-amd64-ubuntu$(UBUNTU_VERSION)-ros2$(ROS2_DISTRO).iso` - Development machines
-- `ros2-robotics-kit-arm64-ubuntu$(UBUNTU_VERSION)-ros2$(ROS2_DISTRO).iso` - Raspberry Pi 5
-	
-## 🔧 Installation
-1. Download appropriate ISO for your hardware
-2. Flash to USB/SD card using standard tools
-3. Boot and follow installation wizard
-4. System ready for ROS2 development
-	
-## ✅ Checksums
-Verify downloads with provided SHA256/MD5 checksums.
-EOF
+	@echo "# ROS2 Robotics Kit ISO Release" > /tmp/release-notes.md
+	@echo "" >> /tmp/release-notes.md
+	@echo "## 🚀 Features" >> /tmp/release-notes.md
+	@echo "- Pre-configured ROS2 environment" >> /tmp/release-notes.md
+	@echo "- Ubuntu base system" >> /tmp/release-notes.md
+	@echo "- Robotics development tools included" >> /tmp/release-notes.md
+	@echo "- Hardware abstraction for Raspberry Pi 5 (ARM64)" >> /tmp/release-notes.md
+	@echo "- Development environment for PC/laptop (AMD64)" >> /tmp/release-notes.md
+	@echo "" >> /tmp/release-notes.md
+	@echo "## 📦 Images" >> /tmp/release-notes.md
+	@echo "- AMD64: Ubuntu 22.04 + ROS2 Humble (Development)" >> /tmp/release-notes.md
+	@echo "- ARM64: Ubuntu 24.04 + ROS2 Jazzy (Raspberry Pi 5)" >> /tmp/release-notes.md
+	@echo "" >> /tmp/release-notes.md
+	@echo "## 🔧 Installation" >> /tmp/release-notes.md
+	@echo "1. Download appropriate ISO for your hardware" >> /tmp/release-notes.md
+	@echo "2. Flash to USB/SD card using standard tools" >> /tmp/release-notes.md
+	@echo "3. Boot and follow installation wizard" >> /tmp/release-notes.md
+	@echo "4. System ready for ROS2 development" >> /tmp/release-notes.md
+	@echo "" >> /tmp/release-notes.md
+	@echo "## ✅ Checksums" >> /tmp/release-notes.md
+	@echo "Verify downloads with provided SHA256/MD5 checksums." >> /tmp/release-notes.md
 	@echo "📄 Release notes template created at /tmp/release-notes.md"
 
 info: ## Show build information
