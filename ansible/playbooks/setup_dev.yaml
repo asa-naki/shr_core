@@ -1,0 +1,108 @@
+---
+# Development Environment Setup Playbook (AMD64)
+# This playbook sets up ROS2 development environment on AMD64 architecture
+
+- name: Setup ROS2 Development Environment for AMD64
+  hosts: all
+  become: true
+  gather_facts: true
+  vars:
+    ros2_distro: humble
+    target_architecture: amd64
+    install_dev_tools: true
+    ros2_additional_packages:
+      - ros-humble-example-interfaces
+      - ros-humble-demo-nodes-cpp
+      - ros-humble-demo-nodes-py
+      - ros-humble-rqt*
+      - ros-humble-rviz2
+      - python3-colcon-common-extensions
+      - python3-rosdep
+      - python3-vcstool
+      - python3-argcomplete
+
+  pre_tasks:
+    - name: Verify target architecture
+      assert:
+        that:
+          - ansible_architecture == "x86_64"
+        fail_msg: "This playbook is designed for AMD64/x86_64 architecture only. Current: {{ ansible_architecture }}"
+        success_msg: "Architecture verification passed: {{ ansible_architecture }}"
+
+    - name: Display system information
+      debug:
+        msg:
+          - "Target Host: {{ inventory_hostname }}"
+          - "OS: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "Architecture: {{ ansible_architecture }}"
+          - "ROS2 Distribution: {{ ros2_distro }}"
+
+    - name: Check Ubuntu version compatibility
+      assert:
+        that:
+          - ansible_distribution == "Ubuntu"
+          - ansible_distribution_version is version('20.04', '>=')
+        fail_msg: "This playbook requires Ubuntu 20.04 or later. Current: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+        success_msg: "Ubuntu version check passed: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+
+  roles:
+    - role: ros2
+      vars:
+        ros2_distro: "{{ ros2_distro }}"
+        install_dev_tools: "{{ install_dev_tools }}"
+        ros2_additional_packages: "{{ ros2_additional_packages }}"
+
+  post_tasks:
+    - name: Install development utilities
+      apt:
+        name:
+          - git
+          - wget
+          - curl
+          - vim
+          - htop
+          - tree
+          - build-essential
+          - cmake
+          - gdb
+          - valgrind
+        state: present
+        update_cache: true
+
+    - name: Create development workspace directory
+      file:
+        path: "{{ ansible_env.HOME }}/ros2_ws/src"
+        state: directory
+        owner: "{{ ansible_user | default(ansible_env.USER) }}"
+        group: "{{ ansible_user | default(ansible_env.USER) }}"
+        mode: "0755"
+      become: false
+
+    - name: Add ROS2 workspace setup to bashrc
+      lineinfile:
+        path: "{{ ansible_env.HOME }}/.bashrc"
+        line: "{{ item }}"
+        state: present
+        create: true
+      become: false
+      loop:
+        - "# ROS2 Development Environment"
+        - "export ROS_DOMAIN_ID=42"
+        - "export COLCON_WS={{ ansible_env.HOME }}/ros2_ws"
+        - "alias cw='cd $COLCON_WS'"
+        - "alias cs='cd $COLCON_WS/src'"
+        - "alias cb='cd $COLCON_WS && colcon build'"
+        - "alias ct='cd $COLCON_WS && colcon test'"
+
+    - name: Display completion message
+      debug:
+        msg:
+          - "✅ ROS2 development environment setup completed!"
+          - "🏗️  Workspace created at: {{ ansible_env.HOME }}/ros2_ws"
+          - "🔧 Development tools installed"
+          - "📝 Environment aliases added to .bashrc"
+          - ""
+          - "Next steps:"
+          - "1. Source your bashrc: source ~/.bashrc"
+          - "2. Navigate to workspace: cw"
+          - "3. Test installation: ros2 topic list"

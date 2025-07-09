@@ -1,0 +1,21 @@
+---
+profile: production
+
+# Exclude certain paths
+exclude_paths:
+  - .cache/
+  - .github/
+  - .tox/
+  - __pycache__/
+
+# Skip specific rules for this project
+skip_list:
+  - yaml[line-length] # Allow longer lines for readability
+  - name[casing] # Allow descriptive task names
+  - risky-file-permissions # We manage permissions explicitly
+
+# Use specific rules
+use_default_rules: true
+
+# Enable offline mode to avoid internet dependency
+offline: true

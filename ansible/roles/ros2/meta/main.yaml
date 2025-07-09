@@ -1,0 +1,19 @@
+---
+galaxy_info:
+  author: Your Name
+  description: Ansible role for installing ROS2
+  company: Your Company
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal # 20.04
+        - jammy # 22.04
+        - noble # 24.04
+  galaxy_tags:
+    - robotics
+    - ros2
+    - development
+
+dependencies: []

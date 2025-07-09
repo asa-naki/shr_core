@@ -1,0 +1,19 @@
+---
+# Default variables for ROS2 role
+
+# ROS2 distribution to install (humble, iron, jazzy, etc.)
+ros2_distro: humble
+
+# Architecture support
+ros2_architecture:
+  - amd64
+  - arm64
+
+# Additional packages to install (optional)
+ros2_additional_packages: []
+
+# ROS2 APT source repository (official method)
+ros2_apt_source_repo: "https://github.com/ros-infrastructure/ros-apt-source"
+
+# Development tools flag
+install_dev_tools: true

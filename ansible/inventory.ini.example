@@ -1,0 +1,27 @@
+# Ansible Inventory Example
+# Copy this file to 'inventory.ini' and customize for your setup
+
+[development_machines]
+# AMD64 development machines
+dev-desktop ansible_host=192.168.1.100 ansible_user=developer
+dev-laptop ansible_host=192.168.1.101 ansible_user=developer
+
+[robotics_kits]
+# ARM64 Raspberry Pi 5 robotics kits
+robot-kit-01 ansible_host=192.168.1.200 ansible_user=ubuntu
+robot-kit-02 ansible_host=192.168.1.201 ansible_user=ubuntu
+robot-kit-03 ansible_host=192.168.1.202 ansible_user=ubuntu
+
+[all:vars]
+# Common variables
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+ansible_python_interpreter=/usr/bin/python3
+
+[development_machines:vars]
+# AMD64 specific variables
+target_arch=amd64
+
+[robotics_kits:vars]
+# ARM64 Raspberry Pi specific variables
+target_arch=arm64
+ansible_become_password_file=~/.ansible/become_pass

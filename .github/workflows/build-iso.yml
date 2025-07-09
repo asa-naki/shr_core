@@ -1,0 +1,238 @@
+name: Build ROS2 Robotics Kit ISO
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      ros2_distro:
+        description: 'ROS2 Distribution'
+        required: true
+        default: 'humble'
+        type: choice
+        options:
+          - humble
+          - iron
+          - jazzy
+      ubuntu_version:
+        description: 'Ubuntu Version'
+        required: true
+        default: '22.04'
+        type: choice
+        options:
+          - '22.04'
+          - '24.04'
+      architecture:
+        description: 'Target Architecture'
+        required: true
+        default: 'arm64'
+        type: choice
+        options:
+          - arm64
+          - amd64
+
+env:
+  ISO_NAME: ros2-robotics-kit
+  BUILD_DIR: /tmp/iso-build
+  OUTPUT_DIR: /tmp/iso-output
+
+jobs:
+  validate-ansible:
+    name: Validate Ansible Playbooks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Ansible and dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible ansible-lint yamllint
+
+      - name: Validate YAML syntax
+        run: |
+          yamllint ansible/
+
+      - name: Lint Ansible playbooks
+        run: |
+          ansible-lint ansible/playbooks/setup_kit.yaml
+          ansible-lint ansible/playbooks/setup_dev.yaml
+
+      - name: Syntax check playbooks
+        run: |
+          ansible-playbook --syntax-check ansible/playbooks/setup_kit.yaml
+          ansible-playbook --syntax-check ansible/playbooks/setup_dev.yaml
+
+  build-iso:
+    name: Build Custom Ubuntu ISO
+    runs-on: ubuntu-latest
+    needs: validate-ansible
+    strategy:
+      matrix:
+        architecture: [arm64, amd64]
+        ubuntu_version: ['22.04']
+        ros2_distro: [humble]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up build environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            debootstrap \
+            squashfs-tools \
+            xorriso \
+            isolinux \
+            syslinux-efi \
+            grub-pc-bin \
+            grub-efi-amd64-bin \
+            grub-efi-arm64-bin \
+            mtools \
+            dosfstools \
+            qemu-user-static \
+            binfmt-support
+
+      - name: Create build directories
+        run: |
+          sudo mkdir -p ${{ env.BUILD_DIR }}
+          sudo mkdir -p ${{ env.OUTPUT_DIR }}
+          sudo chmod 777 ${{ env.BUILD_DIR }} ${{ env.OUTPUT_DIR }}
+
+      - name: Download Ubuntu base image
+        run: |
+          cd ${{ env.BUILD_DIR }}
+          if [ "${{ matrix.architecture }}" = "arm64" ]; then
+            wget -O ubuntu-base.iso https://cdimage.ubuntu.com/releases/${{ matrix.ubuntu_version }}/release/ubuntu-${{ matrix.ubuntu_version }}-live-server-arm64.iso
+          else
+            wget -O ubuntu-base.iso https://cdimage.ubuntu.com/releases/${{ matrix.ubuntu_version }}/release/ubuntu-${{ matrix.ubuntu_version }}-live-server-amd64.iso
+          fi
+
+      - name: Extract and prepare base system
+        run: |
+          cd ${{ env.BUILD_DIR }}
+          sudo bash ${{ github.workspace }}/scripts/prepare-base-system.sh \
+            ubuntu-base.iso \
+            ${{ matrix.architecture }} \
+            ${{ matrix.ubuntu_version }}
+
+      - name: Apply Ansible configuration
+        run: |
+          cd ${{ env.BUILD_DIR }}
+          sudo bash ${{ github.workspace }}/scripts/apply-ansible-config.sh \
+            ${{ matrix.architecture }} \
+            ${{ matrix.ros2_distro }}
+
+      - name: Build custom ISO
+        run: |
+          cd ${{ env.BUILD_DIR }}
+          sudo bash ${{ github.workspace }}/scripts/build-iso.sh \
+            ${{ matrix.architecture }} \
+            ${{ matrix.ubuntu_version }} \
+            ${{ matrix.ros2_distro }}
+
+      - name: Calculate checksums
+        run: |
+          cd ${{ env.OUTPUT_DIR }}
+          sha256sum *.iso > checksums.sha256
+          md5sum *.iso > checksums.md5
+
+      - name: Upload ISO artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ISO_NAME }}-${{ matrix.architecture }}-ubuntu${{ matrix.ubuntu_version }}-ros2${{ matrix.ros2_distro }}
+          path: |
+            ${{ env.OUTPUT_DIR }}/*.iso
+            ${{ env.OUTPUT_DIR }}/checksums.*
+          retention-days: 30
+
+  test-iso:
+    name: Test ISO in QEMU
+    runs-on: ubuntu-latest
+    needs: build-iso
+    if: github.event_name != 'pull_request'
+    strategy:
+      matrix:
+        architecture: [amd64]  # ARM64 testing requires special setup
+    
+    steps:
+      - name: Download ISO artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.ISO_NAME }}-${{ matrix.architecture }}-ubuntu22.04-ros2humble
+
+      - name: Install QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86-64 qemu-utils
+
+      - name: Test ISO boot
+        run: |
+          timeout 300 qemu-system-x86_64 \
+            -m 2048 \
+            -cdrom *.iso \
+            -boot d \
+            -display none \
+            -serial stdio \
+            -no-reboot || true
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [build-iso, test-iso]
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create release notes
+        run: |
+          cat > release_notes.md << 'EOF'
+          # ROS2 Robotics Kit ISO Images
+          
+          This release contains custom Ubuntu ISO images pre-configured with ROS2 for robotics development.
+          
+          ## Images included:
+          - Ubuntu 22.04 ARM64 with ROS2 Humble (Raspberry Pi 5 optimized)
+          - Ubuntu 22.04 AMD64 with ROS2 Humble (Development machines)
+          
+          ## Features:
+          - Pre-installed ROS2 Humble Desktop
+          - Robotics development tools
+          - GPIO/I2C/SPI support (ARM64)
+          - Pre-configured workspaces
+          - Hardware abstraction layers
+          
+          ## Installation:
+          1. Flash the appropriate ISO to SD card/USB drive
+          2. Boot from the media
+          3. Follow the installation wizard
+          4. System will be ready for ROS2 development
+          
+          ## Checksums:
+          Verify your download integrity using the provided checksum files.
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: ROS2 Robotics Kit ${{ github.ref_name }}
+          body_path: release_notes.md
+          files: |
+            **/*.iso
+            **/*.sha256
+            **/*.md5
+          draft: false
+          prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

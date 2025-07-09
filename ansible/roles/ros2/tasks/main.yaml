@@ -1,0 +1,150 @@
+---
+# ROS2 Installation Tasks (Following official documentation)
+
+- name: Update apt cache
+  apt:
+    update_cache: true
+    cache_valid_time: 3600
+  become: true
+
+- name: Set locale for UTF-8 support
+  locale_gen:
+    name: en_US.UTF-8
+    state: present
+  become: true
+
+- name: Update locale settings
+  lineinfile:
+    path: /etc/default/locale
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+    create: true
+  become: true
+  loop:
+    - { key: "LC_ALL", value: "en_US.UTF-8" }
+    - { key: "LANG", value: "en_US.UTF-8" }
+
+- name: Install required packages for ROS2
+  apt:
+    name:
+      - software-properties-common
+      - curl
+      - gnupg
+      - lsb-release
+      - ca-certificates
+    state: present
+  become: true
+
+- name: Ensure Universe repository is enabled
+  apt_repository:
+    repo: "deb http://archive.ubuntu.com/ubuntu {{ ansible_distribution_release }} universe"
+    state: present
+  become: true
+
+- name: Get latest ros2-apt-source package version
+  uri:
+    url: https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest
+    method: GET
+    return_content: true
+  register: ros_apt_source_release
+
+- name: Set ros2-apt-source version variable
+  set_fact:
+    ros2_apt_source_version: "{{ ros_apt_source_release.json.tag_name }}"
+
+- name: Download ros2-apt-source package
+  get_url:
+    url: "https://github.com/ros-infrastructure/ros-apt-source/releases/download/{{ ros2_apt_source_version }}/ros2-apt-source_{{ ros2_apt_source_version }}.{{ ansible_distribution_release }}_all.deb"
+    dest: "/tmp/ros2-apt-source.deb"
+    mode: "0644"
+
+- name: Install ros2-apt-source package
+  apt:
+    deb: "/tmp/ros2-apt-source.deb"
+    state: present
+  become: true
+
+- name: Remove temporary ros2-apt-source package file
+  file:
+    path: "/tmp/ros2-apt-source.deb"
+    state: absent
+
+- name: Update apt cache after adding ROS2 repository
+  apt:
+    update_cache: true
+  become: true
+
+- name: Install ROS2 development tools and common packages
+  apt:
+    name:
+      - python3-flake8-docstrings
+      - python3-pip
+      - python3-pytest-cov
+      - ros-dev-tools
+    state: present
+  become: true
+
+- name: Install Ubuntu version specific packages (22.04 and later)
+  apt:
+    name:
+      - python3-flake8-blind-except
+      - python3-flake8-builtins
+      - python3-flake8-class-newline
+      - python3-flake8-comprehensions
+      - python3-flake8-deprecated
+      - python3-flake8-import-order
+      - python3-flake8-quotes
+      - python3-pytest-repeat
+      - python3-pytest-rerunfailures
+    state: present
+  become: true
+  when: ansible_distribution_version is version('22.04', '>=')
+
+- name: Install ROS2 Desktop Full
+  apt:
+    name: ros-{{ ros2_distro | default('humble') }}-desktop
+    state: present
+  become: true
+
+- name: Initialize rosdep
+  shell: rosdep init
+  args:
+    creates: /etc/ros/rosdep/sources.list.d/20-default.list
+  become: true
+  ignore_errors: true
+
+- name: Update rosdep
+  shell: rosdep update
+  become: false
+  changed_when: false
+
+- name: Create ROS2 setup script in user's bashrc
+  lineinfile:
+    path: "{{ ansible_env.HOME }}/.bashrc"
+    line: "source /opt/ros/{{ ros2_distro | default('humble') }}/setup.bash"
+    state: present
+    create: true
+
+- name: Create ROS2 setup script in user's profile
+  lineinfile:
+    path: "{{ ansible_env.HOME }}/.profile"
+    line: "source /opt/ros/{{ ros2_distro | default('humble') }}/setup.bash"
+    state: present
+    create: true
+
+- name: Verify ROS2 installation
+  shell: |
+    source /opt/ros/{{ ros2_distro | default('humble') }}/setup.bash && ros2 --version
+  register: ros2_version
+  changed_when: false
+  ignore_errors: true
+
+- name: Display ROS2 version
+  debug:
+    msg: "ROS2 installed successfully: {{ ros2_version.stdout }}"
+  when: ros2_version.rc == 0
+
+- name: Display installation failure message
+  debug:
+    msg: "ROS2 installation verification failed: {{ ros2_version.stderr }}"
+  when: ros2_version.rc != 0
