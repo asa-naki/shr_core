@@ -1,0 +1,35 @@
+# Joy Controller Configuration
+# This file contains the default parameters for the joy_controller package
+
+# Movement control parameters
+joy_controller:
+  ros__parameters:
+    # Input scaling ratios
+    longitudinal_input_ratio: 1.0 # Forward/backward movement scaling
+    lateral_input_ratio: 0.3 # Left/right movement scaling (for holonomic robots)
+    angular_input_ratio: 1.0 # Rotational movement scaling
+
+    # Mode multipliers
+    turbo_multiplier: 2.0 # Speed multiplier for turbo mode
+    precision_multiplier: 0.3 # Speed multiplier for precision mode
+
+    # Deadzone settings
+    deadzone_threshold: 0.1 # Minimum joystick input to register movement
+
+    # Controller mapping (button and axis indices)
+    linear_x_axis: 1 # Axis for forward/backward (typically left stick Y)
+    linear_y_axis: 0 # Axis for left/right (typically left stick X)
+    angular_z_axis: 3 # Axis for rotation (typically right stick X)
+
+    emergency_stop_button: 6 # Button for emergency stop toggle
+    turbo_button: 4 # Button for turbo mode toggle (typically L1/LB)
+    precision_button: 5 # Button for precision mode toggle (typically R1/RB)
+
+    # Safety parameters
+    enable_safety_checks: true # Enable velocity limits and timeout checks
+    max_linear_velocity: 2.0 # Maximum linear velocity (m/s)
+    max_angular_velocity: 2.0 # Maximum angular velocity (rad/s)
+    joy_timeout_duration: 1.0 # Joystick timeout duration (seconds)
+
+    # Debug settings
+    debug_mode: false # Enable debug logging

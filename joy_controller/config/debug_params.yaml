@@ -1,0 +1,12 @@
+# Debug configuration for Joy Controller
+# This configuration enables debug mode and more verbose logging
+
+joy_controller:
+  ros__parameters:
+    # Enable debug mode
+    debug_mode: true
+
+    # More conservative movement settings for testing
+    longitudinal_input_ratio: 0.5
+    lateral_input_ratio: 0.2
+    angular_input_ratio: 0.5
