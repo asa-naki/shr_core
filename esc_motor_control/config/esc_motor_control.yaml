@@ -1,0 +1,19 @@
+esc_motor_control:
+  ros__parameters:
+    # PWM settings
+    pwm_pin: 13 # GPIO pin for PWM output
+    pwm_chip: 0 # PWM chip number (/sys/class/pwm/pwmchip0)
+    pwm_channel: 0 # PWM channel number
+    pwm_frequency: 50 # PWM frequency in Hz (typical for servo/ESC)
+
+    # Motor speed limits
+    max_speed: 1.0 # Maximum forward speed (-1.0 to 1.0)
+    min_speed: -1.0 # Maximum reverse speed (-1.0 to 1.0)
+
+    # Joystick settings
+    full_speed_button: 1 # Button number for full speed (0=A, 1=B, 2=X, 3=Y)
+    full_speed_value: 1.0 # Speed value when full speed button is pressed
+
+    # Safety settings
+    enable_safety_stop: true # Enable automatic safety stop
+    safety_timeout: 1.0 # Timeout in seconds before safety stop

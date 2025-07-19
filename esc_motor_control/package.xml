@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+    <name>esc_motor_control</name>
+    <version>0.1.0</version>
+    <description>ROS2 package for controlling brushed motors via ESC using PWM on Raspberry Pi</description>
+    <maintainer email="asahi@example.com">asahi</maintainer>
+    <license>MIT</license>
+
+    <buildtool_depend>ament_cmake</buildtool_depend>
+
+    <depend>rclcpp</depend>
+    <depend>std_msgs</depend>
+    <depend>geometry_msgs</depend>
+    <depend>sensor_msgs</depend>
+
+    <test_depend>ament_lint_auto</test_depend>
+    <test_depend>ament_lint_common</test_depend>
+    <test_depend>ament_cmake_gtest</test_depend>
+    <test_depend>rclcpp</test_depend>
+    <test_depend>std_msgs</test_depend>
+    <test_depend>sensor_msgs</test_depend>
+    <test_depend>geometry_msgs</test_depend>
+
+    <export>
+        <build_type>ament_cmake</build_type>
+    </export>
+</package>
