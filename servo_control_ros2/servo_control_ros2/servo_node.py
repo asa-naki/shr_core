@@ -60,14 +60,14 @@ class ServoNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    
+    servo_node = None
     try:
         servo_node = ServoNode()
         rclpy.spin(servo_node)
     except KeyboardInterrupt:
         pass
     finally:
-        if 'servo_node' in locals():
+        if servo_node is not None:
             servo_node.destroy_node()
         rclpy.shutdown()
 
