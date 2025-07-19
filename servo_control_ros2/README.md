@@ -1,4 +1,4 @@
-# servo_control_ros2/servo_control_ros2/README.md
+# servo_control_ros2/README.md
 
 # Servo Control ROS2 Package
 
