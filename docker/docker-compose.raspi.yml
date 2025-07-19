@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  ros2-raspi-dev:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.raspi
+      platforms:
+        - linux/arm64
+    image: ros2-raspi-dev:jazzy
+    container_name: ros2-raspi-dev
+    hostname: raspi-ros2
+    restart: unless-stopped
+    
+    # 特権モード（GPIO/I2C/SPI/Camera アクセス用）
+    privileged: true
+    
+    # ネットワーク設定
+    network_mode: host
+    
+    # 環境変数
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+      - ROS_DOMAIN_ID=42
+      - QT_X11_NO_MITSHM=1
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    
+    # ボリュームマウント
+    volumes:
+      # ワークスペースの永続化
+      - ./workspace:/home/ros/robot_ws/src
+      - ros2_build:/home/ros/robot_ws/build
+      - ros2_install:/home/ros/robot_ws/install
+      - ros2_log:/home/ros/robot_ws/log
+      
+      # X11フォワーディング
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /home/$USER/.Xauthority:/home/ros/.Xauthority:ro
+      
+      # Raspberry Pi特有のデバイス
+      - /dev:/dev
+      - /sys:/sys
+      - /proc:/proc
+      
+      # カメラデバイス
+      - /dev/video0:/dev/video0
+      - /dev/video1:/dev/video1
+      
+      # GPU（Raspberry Pi 5）
+      - /opt/vc:/opt/vc:ro
+      - /usr/lib/aarch64-linux-gnu/libvcos.so:/usr/lib/aarch64-linux-gnu/libvcos.so:ro
+      - /usr/lib/aarch64-linux-gnu/libvchiq_arm.so:/usr/lib/aarch64-linux-gnu/libvchiq_arm.so:ro
+      
+      # 設定ファイル
+      - ./config/robot_config.yaml:/home/ros/robot_config.yaml:ro
+    
+    # ポート開放（Web UI、ROSブリッジ等）
+    ports:
+      - "8080:8080"    # Web UI
+      - "9090:9090"    # ROSbridge
+      - "5900:5900"    # VNC（オプション）
+    
+    # デバイスアクセス
+    devices:
+      - /dev/i2c-1:/dev/i2c-1
+      - /dev/spidev0.0:/dev/spidev0.0
+      - /dev/spidev0.1:/dev/spidev0.1
+      - /dev/gpiomem:/dev/gpiomem
+      - /dev/ttyAMA0:/dev/ttyAMA0
+      - /dev/ttyUSB0:/dev/ttyUSB0
+    
+    # 作業ディレクトリ
+    working_dir: /home/ros/robot_ws
+    
+    # インタラクティブモード
+    stdin_open: true
+    tty: true
+    
+    # ヘルスチェック
+    healthcheck:
+      test: ["CMD", "ros2", "node", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # オプション: ROSbridgeサーバー
+  rosbridge:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.raspi
+    image: ros2-raspi-dev:jazzy
+    container_name: rosbridge-server
+    depends_on:
+      - ros2-raspi-dev
+    network_mode: host
+    command: ros2 launch rosbridge_server rosbridge_websocket_launch.xml
+    environment:
+      - ROS_DOMAIN_ID=42
+    restart: unless-stopped
+
+volumes:
+  ros2_build:
+    driver: local
+  ros2_install:
+    driver: local
+  ros2_log:
+    driver: local

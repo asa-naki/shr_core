@@ -1,0 +1,76 @@
+# Raspberry Pi 5 Robot Configuration
+robot:
+  name: "raspi_robot"
+  frame_id: "base_link"
+
+  # ハードウェア設定
+  hardware:
+    # モーター制御
+    motors:
+      enable: true
+      left_motor_pin: 18
+      right_motor_pin: 19
+      pwm_frequency: 1000
+
+    # センサー
+    sensors:
+      # IMU
+      imu:
+        enable: true
+        i2c_address: 0x68
+        frame_id: "imu_link"
+
+      # 超音波センサー
+      ultrasonic:
+        enable: true
+        trigger_pin: 23
+        echo_pin: 24
+        max_range: 4.0 # meters
+
+      # カメラ
+      camera:
+        enable: true
+        device: "/dev/video0"
+        width: 640
+        height: 480
+        fps: 30
+
+    # LED/ディスプレイ
+    display:
+      enable: true
+      type: "neopixel" # or "oled"
+      pin: 21
+      num_pixels: 16
+
+  # ROS2設定
+  ros2:
+    namespace: "robot"
+    topics:
+      cmd_vel: "cmd_vel"
+      odom: "odom"
+      scan: "scan"
+      image: "camera/image_raw"
+
+    # パブリッシュ頻度
+    rates:
+      odom_hz: 50
+      sensor_hz: 10
+      camera_hz: 30
+
+  # Navigation設定
+  navigation:
+    enable: true
+    map_frame: "map"
+    odom_frame: "odom"
+    base_frame: "base_link"
+
+    # ロボットの物理パラメータ
+    robot_radius: 0.15 # meters
+    max_vel_x: 0.5 # m/s
+    max_vel_theta: 1.0 # rad/s
+
+  # セーフティ設定
+  safety:
+    emergency_stop_distance: 0.3 # meters
+    battery_low_voltage: 11.0 # volts
+    watchdog_timeout: 5.0 # seconds

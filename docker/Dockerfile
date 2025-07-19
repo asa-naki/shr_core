@@ -57,6 +57,6 @@ ENV ARCHITECTURE=amd64
 CMD ["/bin/bash", "-c", "make build-dev"]
 
 # Labels
-LABEL maintainer="ROS2 Robotics Kit Team"
+LABEL maintainer="asa-naki"
 LABEL description="Docker container for building ROS2 Robotics Kit ISO images"
 LABEL version="1.0"

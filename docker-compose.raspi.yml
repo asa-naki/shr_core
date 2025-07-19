@@ -1,0 +1,75 @@
+services:
+  ros2-raspi:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.raspi
+      args:
+        USERNAME: ros
+        USER_UID: 1000
+        USER_GID: 1000
+    image: ros2-raspi-dev:jazzy
+    container_name: ros2-raspi-dev
+    
+    # ネットワーク設定
+    network_mode: host
+    
+    # 環境変数
+    environment:
+      - DISPLAY=${DISPLAY}
+      - ROS_DOMAIN_ID=42
+      - QT_X11_NO_MITSHM=1
+    
+    # ボリュームマウント
+    volumes:
+      # ワークスペースの永続化
+      - ./workspace:/home/ros/robot_ws/src
+      - ros2_raspi_build:/home/ros/robot_ws/build
+      - ros2_raspi_install:/home/ros/robot_ws/install
+      - ros2_raspi_log:/home/ros/robot_ws/log
+      
+      # X11フォワーディング
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      
+      # デバイスファイル（Raspberry Pi固有）
+      - /dev:/dev
+      
+      # GPIO/I2C/SPI アクセス用
+      - /sys/class/gpio:/sys/class/gpio
+      - /sys/devices:/sys/devices
+      
+      # ホストのタイムゾーン
+      - /etc/localtime:/etc/localtime:ro
+    
+    # デバイスアクセス
+    devices:
+      - /dev/i2c-1:/dev/i2c-1     # I2C
+      - /dev/spidev0.0:/dev/spidev0.0  # SPI
+      - /dev/spidev0.1:/dev/spidev0.1  # SPI
+      - /dev/ttyAMA0:/dev/ttyAMA0  # UART
+      - /dev/video0:/dev/video0    # カメラ (存在する場合)
+    
+    # 特権モード（GPIOアクセスに必要）
+    privileged: true
+    
+    # stdin/tty
+    stdin_open: true
+    tty: true
+    
+    # コンテナの再起動ポリシー
+    restart: unless-stopped
+    
+    # ヘルスチェック
+    healthcheck:
+      test: ["CMD", "ros2", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  ros2_raspi_build:
+    driver: local
+  ros2_raspi_install:
+    driver: local
+  ros2_raspi_log:
+    driver: local

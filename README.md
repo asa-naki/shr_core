@@ -259,12 +259,126 @@ Enable verbose output:
 make build-dev VERBOSE=1
 ```
 
-## 📄 License
+## 🐳 Docker Development Environment
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+For rapid development and testing on Raspberry Pi 5, we provide a containerized ROS2 environment:
 
-## 🙏 Acknowledgments
+### 🚀 Quick Docker Setup
 
-- [ROS2 Community](https://ros.org/) for the excellent robotics framework
-- [Ubuntu](https://ubuntu.com/) for the solid foundation
-- [Ansible](https://ansible.com/) for infrastructure automation
+```bash
+# Initial setup (one-time)
+make docker-raspi-setup
+
+# Start development environment
+make docker-raspi-run
+
+# Connect to container
+make docker-raspi-exec
+```
+
+### 🔧 Docker Features
+
+- **ARM64 optimized**: Native ARM64 container for Raspberry Pi 5
+- **Hardware access**: GPIO, I2C, SPI, Camera support
+- **X11 forwarding**: GUI applications (RViz, rqt)
+- **Persistent workspace**: Your code survives container restarts
+- **Pre-configured**: ROS2 Jazzy, development tools ready
+
+### 🛠️ Docker Commands
+
+```bash
+# Build Docker image
+make docker-raspi-build
+
+# Run container with hardware access
+make docker-raspi-run
+
+# Connect to running container
+make docker-raspi-exec
+
+# View container logs
+make docker-raspi-logs
+
+# Stop container
+make docker-raspi-stop
+
+# Clean up (remove containers/images)
+make docker-raspi-clean
+
+# Check status
+make docker-raspi-status
+```
+
+### 📱 Container Usage
+
+Once inside the container:
+
+```bash
+# Navigate workspace
+rw    # cd to robot workspace
+rs    # cd to src directory
+
+# Build and run
+rb    # build workspace
+rr    # source workspace
+rt    # run tests
+
+# Example: Create a teleop node
+cd ~/robot_ws/src
+ros2 pkg create my_robot --build-type ament_python --dependencies rclpy geometry_msgs
+```
+
+### Raspberry Pi Docker環境の使用方法
+
+```bash
+# Docker環境の起動
+make docker-raspi-up
+
+# シェルにアクセス
+make docker-raspi-shell
+
+# ワークスペース全体のビルド
+make docker-raspi-build-workspace
+
+# 特定のパッケージのビルド
+make docker-raspi-build-package PKG=my_robot_controller
+
+# 新しいパッケージの作成
+make docker-raspi-create-pkg PKG=my_robot_controller TYPE=ament_python
+
+# テストの実行
+make docker-raspi-test
+
+# 環境の停止
+make docker-raspi-down
+```
+
+### コンテナ内での作業
+
+コンテナ内では以下のエイリアスが利用できます：
+
+- `rw` - ワークスペースディレクトリに移動
+- `rs` - srcディレクトリに移動  
+- `rb` - ワークスペース全体をビルド（symlink-install）
+- `rbd` - デバッグモードでビルド
+- `rbr` - リリースモードでビルド
+- `rbc` - クリーンビルド
+- `cbp <pkg>` - 特定のパッケージのみビルド
+- `cbu <pkg>` - 指定したパッケージまでビルド
+- `rt` - テスト実行
+- `rr` - ワークスペースをソース
+
+### ワークスペースの構造
+
+```
+workspace/               # ホスト側のソースコード
+├── my_robot_controller/ # あなたのROS2パッケージ
+│   ├── package.xml
+│   ├── setup.py
+│   └── ...
+└── README.md           # ワークスペースの説明
+```
+
+ホスト側の`workspace/`ディレクトリの内容は、コンテナ内の`/home/ros/robot_ws/src`にマウントされます。
+
+```

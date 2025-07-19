@@ -171,3 +171,65 @@ info: ## Show build information
 	@echo "🧰 Tool versions:"
 	@ansible --version 2>/dev/null | head -1 || echo "  Ansible: not installed"
 	@qemu-system-x86_64 --version 2>/dev/null | head -1 || echo "  QEMU: not installed"
+
+# Docker related targets
+docker-raspi-setup: ## Setup Raspberry Pi Docker environment
+	@echo "🐳 Setting up Raspberry Pi Docker environment..."
+	./scripts/docker-raspi.sh setup
+
+docker-raspi-build: ## Build Raspberry Pi Docker image
+	@echo "🏗️  Building Raspberry Pi Docker image..."
+	./scripts/docker-raspi.sh build
+
+docker-raspi-run: ## Run Raspberry Pi Docker container
+	@echo "🚀 Starting Raspberry Pi Docker container..."
+	./scripts/docker-raspi.sh run
+
+docker-raspi-exec: ## Connect to Raspberry Pi Docker container
+	@echo "🔗 Connecting to Raspberry Pi Docker container..."
+	./scripts/docker-raspi.sh exec
+
+docker-raspi-stop: ## Stop Raspberry Pi Docker container
+	@echo "⏹️  Stopping Raspberry Pi Docker container..."
+	./scripts/docker-raspi.sh stop
+
+docker-raspi-logs: ## Show Raspberry Pi Docker container logs
+	@echo "📝 Showing Raspberry Pi Docker container logs..."
+	./scripts/docker-raspi.sh logs
+
+docker-raspi-status: ## Show Raspberry Pi Docker environment status
+	@echo "📊 Showing Raspberry Pi Docker environment status..."
+	./scripts/docker-raspi.sh status
+
+docker-raspi-clean: ## Clean up Raspberry Pi Docker environment
+	@echo "🧹 Cleaning up Raspberry Pi Docker environment..."
+	./scripts/docker-raspi.sh clean
+
+# Raspberry Pi colcon build related targets
+docker-raspi-up: ## Start Raspberry Pi Docker environment using docker-compose
+	@echo "🐳 Building and starting Raspberry Pi Docker environment..."
+	docker compose -f docker-compose.raspi.yml up -d --build
+
+docker-raspi-down: ## Stop Raspberry Pi Docker environment using docker-compose
+	@echo "⏹️  Stopping Raspberry Pi Docker environment..."
+	docker compose -f docker-compose.raspi.yml down
+
+docker-raspi-build-workspace: ## Build ROS2 workspace in Raspberry Pi Docker container
+	@echo "🔨 Building ROS2 workspace in container..."
+	docker compose -f docker-compose.raspi.yml exec ros2-raspi bash -c "source /opt/ros/jazzy/setup.bash && cd /home/ros/robot_ws && colcon build --symlink-install"
+
+docker-raspi-build-package: ## Build specific package in Raspberry Pi Docker container (usage: make docker-raspi-build-package PKG=package_name)
+	@echo "🔨 Building package $(PKG) in container..."
+	docker compose -f docker-compose.raspi.yml exec ros2-raspi bash -c "source /opt/ros/jazzy/setup.bash && cd /home/ros/robot_ws && colcon build --packages-select $(PKG) --symlink-install"
+
+docker-raspi-test: ## Run tests in Raspberry Pi Docker container
+	@echo "🧪 Running tests in container..."
+	docker compose -f docker-compose.raspi.yml exec ros2-raspi bash -c "source /opt/ros/jazzy/setup.bash && cd /home/ros/robot_ws && source install/setup.bash && colcon test"
+
+docker-raspi-shell: ## Open shell in Raspberry Pi Docker container
+	@echo "🐚 Opening shell in container..."
+	docker compose -f docker-compose.raspi.yml exec ros2-raspi bash
+
+docker-raspi-create-pkg: ## Create new ROS2 package (usage: make docker-raspi-create-pkg PKG=package_name TYPE=ament_python)
+	@echo "📦 Creating ROS2 package $(PKG)..."
+	docker compose -f docker-compose.raspi.yml exec ros2-raspi bash -c "source /opt/ros/jazzy/setup.bash && cd /home/ros/robot_ws/src && ros2 pkg create $(PKG) --build-type $(or $(TYPE),ament_python) --dependencies rclpy geometry_msgs sensor_msgs"
