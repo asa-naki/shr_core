@@ -1,4 +1,4 @@
-# servo_control_ros2/servo_control_ros2/README.md
+# servo_control_ros2/README.md
 
 # Servo Control ROS2 Package
 
@@ -69,5 +69,4 @@ colcon test
 - 使用するROS2のバージョンに応じて、依存関係を適切に管理してください。
 
 ## ライセンス
-
-このプロジェクトはMITライセンスの下で提供されています。詳細はLICENSEファイルを参照してください
+このプロジェクトはMITライセンスの下で提供されています。詳細はLICENSEファイルを参照してください。
