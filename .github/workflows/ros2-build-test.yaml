@@ -1,0 +1,203 @@
+name: ROS2 Build and Test
+
+on:
+  push:
+    branches: [ master, main ]
+    paths-ignore:
+      - '**.md'
+      - 'ansible/**'
+      - 'docker/**'
+      - 'scripts/**'
+  pull_request:
+    branches: [ master, main ]
+    paths-ignore:
+      - '**.md'
+      - 'ansible/**'
+      - 'docker/**'
+      - 'scripts/**'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    container:
+      image: ros:${{ matrix.ros_distro }}-ros-base
+      options: --platform linux/${{ matrix.architecture }}
+    strategy:
+      matrix:
+        ros_distro: [humble, jazzy]
+        architecture: [amd64, arm64]
+      fail-fast: false
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Cache ROS2 dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/pip
+          ~/.ccache
+          /var/cache/apt
+        key: ros2-deps-${{ matrix.ros_distro }}-${{ matrix.architecture }}-${{ hashFiles('**/package.xml', 'dependency.repos') }}
+        restore-keys: |
+          ros2-deps-${{ matrix.ros_distro }}-${{ matrix.architecture }}-
+          ros2-deps-${{ matrix.ros_distro }}-
+
+    - name: Cache colcon build
+      uses: actions/cache@v4
+      with:
+        path: |
+          build
+          install
+        key: colcon-${{ matrix.ros_distro }}-${{ matrix.architecture }}-${{ hashFiles('**/*.cpp', '**/*.hpp', '**/*.py', '**/CMakeLists.txt', '**/package.xml') }}
+        restore-keys: |
+          colcon-${{ matrix.ros_distro }}-${{ matrix.architecture }}-
+
+    - name: Install build dependencies
+      run: |
+        apt-get update && apt-get install -y 
+          python3-colcon-common-extensions 
+          python3-pip 
+          python3-vcstool 
+          ccache 
+          && rm -rf /var/lib/apt/lists/*
+
+    - name: Setup ccache
+      run: |
+        export CCACHE_DIR=~/.ccache
+        export PATH=/usr/lib/ccache:$PATH
+        ccache --set-config=cache_dir=~/.ccache
+
+    - name: Install Python dependencies
+      run: pip3 install pyserial
+
+    - name: Import additional repositories
+      run: |
+        if [ -f dependency.repos ]; then
+          mkdir -p src
+          cp -r . src/shr_core/
+          cd src && vcs import < shr_core/dependency.repos
+          cd ..
+        else
+          mkdir -p src
+          cp -r . src/shr_core/
+        fi
+
+    - name: Install package dependencies
+      run: |
+        if [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then
+          rosdep init
+        fi
+        rosdep update
+        rosdep install --from-paths src --ignore-src -r -y
+
+    - name: Build ROS2 packages
+      run: |
+        source /opt/ros/${{ matrix.ros_distro }}/setup.bash
+        export CCACHE_DIR=~/.ccache
+        export PATH=/usr/lib/ccache:$PATH
+        colcon build 
+          --symlink-install 
+          --parallel-workers $(nproc) 
+          --cmake-args 
+            -DCMAKE_BUILD_TYPE=Release 
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache 
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache 
+          --event-handlers console_direct+ 
+          --merge-install
+
+    - name: Run tests
+      run: |
+        source /opt/ros/${{ matrix.ros_distro }}/setup.bash
+        source install/setup.bash
+        colcon test 
+          --parallel-workers $(nproc) 
+          --return-code-on-test-failure 
+          --event-handlers console_direct+
+
+    - name: Show test results
+      if: always()
+      run: |
+        source /opt/ros/${{ matrix.ros_distro }}/setup.bash
+        source install/setup.bash
+        colcon test-result --verbose
+
+  static-analysis:
+    runs-on: ubuntu-latest
+    container:
+      image: ros:${{ matrix.ros_distro }}-ros-base
+    strategy:
+      matrix:
+        ros_distro: [humble, jazzy]
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install linting tools
+      run: |
+        apt-get update && apt-get install -y python3-pip && rm -rf /var/lib/apt/lists/*
+        pip3 install flake8 pep257
+
+    - name: Run flake8 (Python style check)
+      run: |
+        find . -name "*.py" -not -path "./__pycache__/*" -not -path "./build/*" -not -path "./install/*" -not -path "./log/*" | xargs flake8 --max-line-length=100 --ignore=E501,W503
+
+    - name: Run pep257 (Python docstring check)
+      run: |
+        find . -name "*.py" -not -path "./__pycache__/*" -not -path "./build/*" -not -path "./install/*" -not -path "./log/*" | xargs pep257 --ignore=D100,D101,D102,D103,D104,D105,D107,D203,D213
+
+  format-check:
+    runs-on: ubuntu-latest
+    container:
+      image: ros:${{ matrix.ros_distro }}-ros-base
+    strategy:
+      matrix:
+        ros_distro: [humble, jazzy]
+    if: github.event_name == 'pull_request'
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install ament_clang_format
+      run: |
+        apt-get update && apt-get install -y \
+          python3-pip \
+          ros-dev-tools \
+          && rm -rf /var/lib/apt/lists/*
+        pip3 install ament_clang_format
+
+    - name: Check C++ formatting
+      run: |
+        find . -name "*.cpp" -o -name "*.hpp" | xargs ament_clang_format --config .clang-format --reformat-code=false
+
+  build-summary:
+    needs: [build-and-test, static-analysis, format-check]
+    runs-on: ubuntu-latest
+    container:
+      image: ros:humble-ros-base
+    if: always()
+    steps:
+    - name: Build Summary
+      run: |
+        echo "## Build Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.build-and-test.result }}" == "success" ]; then
+          echo "✅ **Build and Test**: Passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Build and Test**: Failed" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "${{ needs.static-analysis.result }}" == "success" ]; then
+          echo "✅ **Static Analysis**: Passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Static Analysis**: Failed" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "${{ needs.format-check.result }}" == "success" ] || [ "${{ needs.format-check.result }}" == "skipped" ]; then
+          echo "✅ **Format Check**: Passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Format Check**: Failed" >> $GITHUB_STEP_SUMMARY
+        fi
