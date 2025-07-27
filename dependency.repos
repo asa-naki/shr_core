@@ -1,5 +1,5 @@
 repositories:
     joy_to_twist:
         type: git
-        url: git@github.com:asa-naki/joy_to_twist.git
+        url: https://github.com/asa-naki/joy_to_twist.git
         version: main
