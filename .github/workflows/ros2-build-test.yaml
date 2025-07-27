@@ -19,9 +19,11 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    container:
+    container: 
       image: ros:${{ matrix.ros_distro }}-ros-base
       options: --platform linux/${{ matrix.architecture }}
+    env:
+      DEBIAN_FRONTEND: noninteractive
     strategy:
       matrix:
         ros_distro: [humble, jazzy]
@@ -29,33 +31,15 @@ jobs:
       fail-fast: false
     
     steps:
+    - name: Suppress git warnings
+      run: |
+        git config --global --add safe.directory '*'
+        
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        submodules: recursive
+        fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Cache ROS2 dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/pip
-          ~/.ccache
-          /var/cache/apt
-        key: ros2-deps-${{ matrix.ros_distro }}-${{ matrix.architecture }}-${{ hashFiles('**/package.xml', 'dependency.repos') }}
-        restore-keys: |
-          ros2-deps-${{ matrix.ros_distro }}-${{ matrix.architecture }}-
-          ros2-deps-${{ matrix.ros_distro }}-
-
-    - name: Cache colcon build
-      uses: actions/cache@v4
-      with:
-        path: |
-          build
-          install
-        key: colcon-${{ matrix.ros_distro }}-${{ matrix.architecture }}-${{ hashFiles('**/*.cpp', '**/*.hpp', '**/*.py', '**/CMakeLists.txt', '**/package.xml') }}
-        restore-keys: |
-          colcon-${{ matrix.ros_distro }}-${{ matrix.architecture }}-
 
     - name: Install build dependencies
       run: |
@@ -65,6 +49,7 @@ jobs:
           python3-vcstool \
           ccache \
           git \
+          wget \
           && rm -rf /var/lib/apt/lists/*
 
     - name: Configure git
@@ -72,80 +57,122 @@ jobs:
         git config --global user.email "action@github.com"
         git config --global user.name "GitHub Action"
         git config --global init.defaultBranch main
+        git config --global --add safe.directory $(pwd)
 
-    - name: Setup ccache
+    - name: Setup workspace and dependencies
       run: |
-        export CCACHE_DIR=~/.ccache
-        export PATH=/usr/lib/ccache:$PATH
-        ccache --set-config=cache_dir=~/.ccache
+        # Create workspace structure
+        mkdir -p src
+        
+        # Copy ROS2 package directories to workspace
+        for pkg in ddt_motor_control esc_motor_control joy_controller servo_control_ros2; do
+          if [ -d "$pkg" ]; then
+            cp -r "$pkg" src/
+          fi
+        done
+        
+        # Import additional repositories if dependency.repos exists
+        if [ -f dependency.repos ]; then
+          # Configure git to use HTTPS instead of SSH for GitHub
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+          vcs import src < dependency.repos
+        fi
+
+    - name: Generate rosdep keys
+      run: |
+        rosdep init || true
+        rosdep update
+        colcon list -p --base-paths src > packages.txt
+        rosdep keys --from-paths $(cat packages.txt) --rosdistro ${{ matrix.ros_distro }} > rosdep_keys.txt || echo "No rosdep keys found"
+
+    - name: Cache rosdep
+      id: cache-rosdep
+      uses: actions/cache@v4
+      with:
+        path: |
+          /var/lib/apt/lists
+          /root/.ros/rosdep
+        key: rosdep-${{ matrix.ros_distro }}-${{ runner.os }}-${{ hashFiles('rosdep_keys.txt') }}
+        restore-keys: |
+          rosdep-${{ matrix.ros_distro }}-${{ runner.os }}-
+
+    - name: Install package dependencies
+      run: |
+        if [[ "${{ steps.cache-rosdep.outputs.cache-hit }}" == "true" ]]; then
+          echo "Rosdep cache hit. Skipping rosdep install."
+        else
+          echo "Rosdep cache miss. Running rosdep install."
+          apt-get -yqq update
+          rosdep install -yqq --from-paths src --ignore-src --rosdistro ${{ matrix.ros_distro }} || true
+        fi
 
     - name: Install Python dependencies
       run: pip3 install pyserial
 
-    - name: Import additional repositories
+    - name: Setup colcon mixin
       run: |
-        if [ -f dependency.repos ]; then
-          mkdir -p src
-          cp -r . src/shr_core/
-          # Configure git to use HTTPS instead of SSH for GitHub
-          git config --global url."https://github.com/".insteadOf "git@github.com:"
-          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
-          cd src && vcs import --debug < shr_core/dependency.repos
-          cd ..
-        else
-          mkdir -p src
-          cp -r . src/shr_core/
-        fi
+        colcon mixin add default https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml || true
+        colcon mixin update default || true
 
-    - name: Install package dependencies
-      run: |
-        if [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then
-          rosdep init
-        fi
-        rosdep update
-        rosdep install --from-paths src --ignore-src -r -y
+    - name: Cache build artifacts
+      uses: actions/cache@v4
+      with:
+        path: |
+          build
+          install
+        key: build-${{ matrix.ros_distro }}-${{ runner.os }}-${{ matrix.architecture }}-${{ hashFiles('**/CMakeLists.txt', '**/*.cmake', '**/package.xml') }}
+        restore-keys: |
+          build-${{ matrix.ros_distro }}-${{ runner.os }}-${{ matrix.architecture }}-
 
     - name: Build ROS2 packages
       run: |
         source /opt/ros/${{ matrix.ros_distro }}/setup.bash
-        export CCACHE_DIR=~/.ccache
-        export PATH=/usr/lib/ccache:$PATH
-        colcon build 
-          --symlink-install 
-          --parallel-workers $(nproc) 
-          --cmake-args 
-            -DCMAKE_BUILD_TYPE=Release 
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache 
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache 
-          --event-handlers console_direct+ 
-          --merge-install
+        
+        # Use optimized parallel workers for GitHub Actions
+        PARALLEL_WORKERS=$(nproc)
+        echo "Using $PARALLEL_WORKERS parallel workers for build"
+        
+        # Build with optimizations
+        colcon build \
+          --event-handlers console_cohesion+ \
+          --parallel-workers $PARALLEL_WORKERS \
+          --cmake-args -DCMAKE_BUILD_TYPE=Release \
+          --symlink-install
 
     - name: Run tests
       run: |
         source /opt/ros/${{ matrix.ros_distro }}/setup.bash
         source install/setup.bash
-        colcon test 
-          --parallel-workers $(nproc) 
-          --return-code-on-test-failure 
-          --event-handlers console_direct+
+        colcon test \
+          --event-handlers console_cohesion+ \
+          --parallel-workers $(nproc) \
+          --return-code-on-test-failure
 
     - name: Show test results
       if: always()
       run: |
         source /opt/ros/${{ matrix.ros_distro }}/setup.bash
         source install/setup.bash
-        colcon test-result --verbose
+        colcon test-result --verbose || echo "No test results found"
 
   static-analysis:
     runs-on: ubuntu-latest
     container:
       image: ros:${{ matrix.ros_distro }}-ros-base
+    env:
+      DEBIAN_FRONTEND: noninteractive
     strategy:
       matrix:
         ros_distro: [humble, jazzy]
     steps:
+    - name: Suppress git warnings
+      run: git config --global --add safe.directory '*'
+        
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Install linting tools
       run: |
@@ -154,23 +181,30 @@ jobs:
 
     - name: Run flake8 (Python style check)
       run: |
-        find . -name "*.py" -not -path "./__pycache__/*" -not -path "./build/*" -not -path "./install/*" -not -path "./log/*" | xargs flake8 --max-line-length=100 --ignore=E501,W503
+        find . -name "*.py" -not -path "./__pycache__/*" -not -path "./build/*" -not -path "./install/*" -not -path "./log/*" | xargs -r flake8 --max-line-length=100 --ignore=E501,W503
 
     - name: Run pep257 (Python docstring check)
       run: |
-        find . -name "*.py" -not -path "./__pycache__/*" -not -path "./build/*" -not -path "./install/*" -not -path "./log/*" | xargs pep257 --ignore=D100,D101,D102,D103,D104,D105,D107,D203,D213
+        find . -name "*.py" -not -path "./__pycache__/*" -not -path "./build/*" -not -path "./install/*" -not -path "./log/*" | xargs -r pep257 --ignore=D100,D101,D102,D103,D104,D105,D107,D203,D213
 
   format-check:
     runs-on: ubuntu-latest
     container:
       image: ros:${{ matrix.ros_distro }}-ros-base
+    env:
+      DEBIAN_FRONTEND: noninteractive
     strategy:
       matrix:
         ros_distro: [humble, jazzy]
     if: github.event_name == 'pull_request'
     steps:
+    - name: Suppress git warnings
+      run: git config --global --add safe.directory '*'
+        
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Install ament_clang_format
       run: |
@@ -182,13 +216,15 @@ jobs:
 
     - name: Check C++ formatting
       run: |
-        find . -name "*.cpp" -o -name "*.hpp" | xargs ament_clang_format --config .clang-format --reformat-code=false
+        find . -name "*.cpp" -o -name "*.hpp" | xargs -r ament_clang_format --config .clang-format --reformat-code=false
 
   build-summary:
     needs: [build-and-test, static-analysis, format-check]
     runs-on: ubuntu-latest
     container:
       image: ros:humble-ros-base
+    env:
+      DEBIAN_FRONTEND: noninteractive
     if: always()
     steps:
     - name: Build Summary
