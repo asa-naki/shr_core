@@ -73,11 +73,9 @@
         msg: "Detected device: {{ pi_model.stdout }}"
 
   roles:
-    - role: ros2
+    - role: ../roles/ros2
       vars:
-        ros2_distro: "{{ ros2_distro }}"
         ros2_install_dev_tools: "{{ install_dev_tools }}"
-        ros2_additional_packages: "{{ ros2_additional_packages }}"
 
   post_tasks:
     - name: Install Raspberry Pi specific utilities
@@ -98,20 +96,11 @@
           - python3-dev
           - python3-setuptools
           - python3-wheel
+          - python3-rpi.gpio
+          - python3-gpiozero
           - libraspberrypi-bin
-          - raspi-gpio
         state: present
         update_cache: true
-
-    - name: Install Python packages for robotics
-      ansible.builtin.pip:
-        name:
-          - RPi.GPIO
-          - gpiozero
-          - adafruit-circuitpython-motor
-          - adafruit-circuitpython-servokit
-        state: present
-      become: false
 
     - name: Enable I2C interface
       ansible.builtin.lineinfile:
@@ -129,6 +118,11 @@
         state: present
       notify: reboot_required
 
+    - name: Create gpio group
+      ansible.builtin.group:
+        name: gpio
+        state: present
+
     - name: Add user to gpio group
       ansible.builtin.user:
         name: "{{ ansible_user | default(ansible_env.USER) }}"
@@ -137,16 +131,16 @@
 
     - name: Create robotics workspace directory
       ansible.builtin.file:
-        path: "{{ ansible_env.HOME }}/robot_ws/src"
+        path: "/home/{{ ansible_user | default(ansible_env.SUDO_USER) }}/robot_ws/src"
         state: directory
-        owner: "{{ ansible_user | default(ansible_env.USER) }}"
-        group: "{{ ansible_user | default(ansible_env.USER) }}"
+        owner: "{{ ansible_user | default(ansible_env.SUDO_USER) }}"
+        group: "{{ ansible_user | default(ansible_env.SUDO_USER) }}"
         mode: "0755"
       become: false
 
     - name: Add ROS2 robotics workspace setup to bashrc
       ansible.builtin.lineinfile:
-        path: "{{ ansible_env.HOME }}/.bashrc"
+        path: "/home/{{ ansible_user | default(ansible_env.SUDO_USER) }}/.bashrc"
         line: "{{ item }}"
         state: present
         create: true
@@ -154,7 +148,7 @@
       loop:
         - "# ROS2 Robotics Kit Environment (Raspberry Pi 5)"
         - "export ROS_DOMAIN_ID=42"
-        - "export ROBOT_WS={{ ansible_env.HOME }}/robot_ws"
+        - "export ROBOT_WS=/home/{{ ansible_user | default(ansible_env.SUDO_USER) }}/robot_ws"
         - "alias rw='cd $ROBOT_WS'"
         - "alias rs='cd $ROBOT_WS/src'"
         - "alias rb='cd $ROBOT_WS && colcon build'"

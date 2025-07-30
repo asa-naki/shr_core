@@ -1,177 +1,136 @@
 ---
-# ROS2 Installation Tasks (Following official documentation)
+# ROS2 Installation Tasks (Following official Ubuntu deb packages installation)
+# Based on: https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html
+# Based on: https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debs.html
 
-- name: Update apt cache
-  ansible.builtin.apt:
-    update_cache: true
-    cache_valid_time: 3600
-  become: true
+- name: Determine ROS2 distribution based on Ubuntu version
+  ansible.builtin.set_fact:
+    ros2_distro_to_use: "{{ 'jazzy' if ansible_distribution_version == '24.04' else 'humble' }}"
 
-- name: Install locales package
-  ansible.builtin.apt:
-    name: locales
-    state: present
-  become: true
+- name: Display ROS2 distribution selection
+  ansible.builtin.debug:
+    msg: "Selected ROS2 distribution: {{ ros2_distro_to_use }} for Ubuntu {{ ansible_distribution_version }}"
 
-- name: Set locale for UTF-8 support
+# System setup - Set locale
+- name: Check current locale
+  ansible.builtin.shell: locale
+  register: current_locale
+  changed_when: false
+
+- name: Display current locale
+  ansible.builtin.debug:
+    msg: "Current locale: {{ current_locale.stdout }}"
+
+- name: Set system locale
   ansible.builtin.shell: |
-    locale-gen en_US.UTF-8
-    update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+    sudo apt update && sudo apt install locales
+    sudo locale-gen en_US en_US.UTF-8
+    sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+    export LANG=en_US.UTF-8
   become: true
   changed_when: false
 
-- name: Update locale settings
-  ansible.builtin.lineinfile:
-    path: /etc/default/locale
-    regexp: "^{{ item.key }}="
-    line: "{{ item.key }}={{ item.value }}"
-    create: true
-  become: true
-  loop:
-    - { key: "LC_ALL", value: "en_US.UTF-8" }
-    - { key: "LANG", value: "en_US.UTF-8" }
+- name: Verify locale setting
+  ansible.builtin.shell: locale
+  register: locale_verification
+  changed_when: false
 
-- name: Install required packages for ROS2
+- name: Display verified locale
+  ansible.builtin.debug:
+    msg: "Verified locale: {{ locale_verification.stdout }}"
+
+# Setup Sources / Enable required repositories
+- name: Install software-properties-common
   ansible.builtin.apt:
-    name:
-      - software-properties-common
-      - curl
-      - gnupg
-      - lsb-release
-      - ca-certificates
+    name: software-properties-common
     state: present
+    update_cache: true
   become: true
 
-- name: Ensure Universe repository is enabled
-  ansible.builtin.apt_repository:
-    repo: "deb http://archive.ubuntu.com/ubuntu {{ ansible_distribution_release }} universe"
+- name: Enable universe repository
+  ansible.builtin.shell: sudo add-apt-repository universe -y
+  become: true
+  changed_when: false
+
+- name: Install curl
+  ansible.builtin.apt:
+    name: curl
     state: present
+    update_cache: true
   become: true
 
-- name: Get latest ros2-apt-source package version
-  ansible.builtin.uri:
-    url: https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest
-    method: GET
-    return_content: true
-  register: ros_apt_source_release
-
-- name: Set ros2-apt-source version variable
-  ansible.builtin.set_fact:
-    ros2_apt_source_version: "{{ ros_apt_source_release.json.tag_name }}"
+- name: Get latest ros2-apt-source version
+  ansible.builtin.shell: |
+    curl -s https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest | grep -F "tag_name" | awk -F\" '{print $4}'
+  register: ros_apt_source_version
+  changed_when: false
 
 - name: Download ros2-apt-source package
-  ansible.builtin.get_url:
-    url: >-
-      https://github.com/ros-infrastructure/ros-apt-source/releases/download/{{
-      ros2_apt_source_version }}/ros2-apt-source_{{ ros2_apt_source_version }}.{{
-      ansible_distribution_release }}_all.deb
-    dest: "/tmp/ros2-apt-source.deb"
-    mode: "0644"
+  ansible.builtin.shell: |
+    curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/{{ ros_apt_source_version.stdout }}/ros2-apt-source_{{ ros_apt_source_version.stdout }}.$(. /etc/os-release && echo $VERSION_CODENAME)_all.deb"
+  changed_when: false
 
 - name: Install ros2-apt-source package
-  ansible.builtin.apt:
-    deb: "/tmp/ros2-apt-source.deb"
-    state: present
+  ansible.builtin.shell: sudo dpkg -i /tmp/ros2-apt-source.deb
   become: true
+  changed_when: false
 
-- name: Remove temporary ros2-apt-source package file
-  ansible.builtin.file:
-    path: "/tmp/ros2-apt-source.deb"
-    state: absent
-
-- name: Update apt cache after adding ROS2 repository
+# Install ROS 2 packages
+- name: Update apt repository caches after setting up repositories
   ansible.builtin.apt:
     update_cache: true
   become: true
 
-- name: Install ROS2 development tools and common packages
+- name: Upgrade system packages (recommended)
   ansible.builtin.apt:
-    name:
-      - python3-flake8-docstrings
-      - python3-pip
-      - python3-pytest-cov
-      - ros-dev-tools
+    upgrade: dist
+  become: true
+
+- name: Install ROS2 Desktop (Recommended) - ROS, RViz, demos, tutorials
+  ansible.builtin.apt:
+    name: ros-{{ ros2_distro_to_use }}-desktop
     state: present
   become: true
 
-- name: Install Ubuntu version specific packages (22.04 and later)
+- name: Install development tools (optional)
   ansible.builtin.apt:
-    name:
-      - python3-flake8-blind-except
-      - python3-flake8-builtins
-      - python3-flake8-class-newline
-      - python3-flake8-comprehensions
-      - python3-flake8-deprecated
-      - python3-flake8-import-order
-      - python3-flake8-quotes
-      - python3-pytest-repeat
-      - python3-pytest-rerunfailures
+    name: ros-dev-tools
     state: present
   become: true
-  when: ansible_distribution_version is version('22.04', '>=')
+  when: ros2_install_dev_tools | default(true)
 
-- name: Install ROS2 Desktop Full
-  ansible.builtin.apt:
-    name: ros-{{ ros2_distro | default('humble') }}-desktop
-    state: present
-  become: true
-
-- name: Initialize rosdep
-  ansible.builtin.command: rosdep init
-  args:
-    creates: /etc/ros/rosdep/sources.list.d/20-default.list
-  become: true
-  failed_when: false
-
-- name: Update rosdep
-  ansible.builtin.command: rosdep update
-  become: false
-  changed_when: false
-
+# Environment setup
 - name: Create ROS2 setup script in user's bashrc
   ansible.builtin.lineinfile:
     path: "{{ ansible_env.HOME }}/.bashrc"
-    line: "source /opt/ros/{{ ros2_distro | default('humble') }}/setup.bash"
+    line: "source /opt/ros/{{ ros2_distro_to_use }}/setup.bash"
     state: present
     create: true
 
-- name: Create ROS2 setup script in user's profile
-  ansible.builtin.lineinfile:
-    path: "{{ ansible_env.HOME }}/.profile"
-    line: "source /opt/ros/{{ ros2_distro | default('humble') }}/setup.bash"
-    state: present
-    create: true
-
-- name: Verify ROS2 installation
+- name: Source ROS2 environment for verification
   ansible.builtin.shell: |
-    source /opt/ros/{{ ros2_distro | default('humble') }}/setup.bash && ros2 --version
-  register: ros2_version
+    source /opt/ros/{{ ros2_distro_to_use }}/setup.bash
+    echo "ROS_DISTRO: $ROS_DISTRO"
+    echo "ROS_VERSION: $ROS_VERSION"
+  register: ros2_env_check
+  changed_when: false
+
+- name: Display ROS2 environment information
+  ansible.builtin.debug:
+    msg: "ROS2 environment: {{ ros2_env_check.stdout }}"
+
+# Try some examples (verification)
+- name: Test ROS2 installation with demo talker
+  ansible.builtin.shell: |
+    source /opt/ros/{{ ros2_distro_to_use }}/setup.bash
+    timeout 5 ros2 run demo_nodes_cpp talker || echo "Demo test completed"
+  register: ros2_demo_test
   changed_when: false
   ignore_errors: true
 
-- name: Display ROS2 version
+- name: Display demo test result
   ansible.builtin.debug:
-    msg: "ROS2 installed successfully: {{ ros2_version.stdout }}"
-  when: ros2_version.rc == 0
-
-- name: Display installation failure message
-  ansible.builtin.debug:
-    msg: "ROS2 installation verification failed: {{ ros2_version.stderr }}"
-  when: ros2_version.rc != 0
-
-# Install additional development tools if requested
-- name: Install additional development tools
-  ansible.builtin.apt:
-    name:
-      - colcon-common-extensions
-      - python3-colcon-bash
-      - python3-colcon-core
-      - python3-vcstool
-      - python3-rosdep
-      - python3-argcomplete
-    state: present
-  become: true
-  when: ros2_install_dev_tools | default(false)
+    msg: "Demo test result: {{ ros2_demo_test.stdout }}"
 
 # Install additional ROS2 packages if specified
 - name: Install additional ROS2 packages
@@ -179,4 +138,55 @@
     name: "{{ ros2_additional_packages }}"
     state: present
   become: true
-  when: ros2_additional_packages is defined and ros2_additional_packages | length > 0
+  when: 
+    - ros2_additional_packages is defined
+    - ros2_additional_packages | length > 0
+
+# Install additional development tools if requested
+- name: Install additional colcon tools
+  ansible.builtin.apt:
+    name:
+      - python3-colcon-common-extensions
+      - python3-vcstool
+      - python3-rosdep
+      - python3-argcomplete
+    state: present
+  become: true
+  when: ros2_install_dev_tools | default(true)
+
+# Initialize rosdep for workspace development
+- name: Initialize rosdep
+  ansible.builtin.shell: sudo rosdep init
+  become: true
+  register: rosdep_init_result
+  failed_when: rosdep_init_result.rc != 0 and "already exists" not in rosdep_init_result.stderr
+  changed_when: rosdep_init_result.rc == 0
+
+- name: Update rosdep
+  ansible.builtin.shell: rosdep update
+  changed_when: false
+
+# Clean up temporary files
+- name: Remove temporary ros2-apt-source package file
+  ansible.builtin.file:
+    path: "/tmp/ros2-apt-source.deb"
+    state: absent
+
+- name: Display installation completion message
+  ansible.builtin.debug:
+    msg: |
+      ROS2 {{ ros2_distro_to_use }} installation completed successfully!
+      
+      ROS2 Desktop package installed with:
+      - ROS2 core libraries
+      - RViz visualization tool
+      - Demo nodes and tutorials
+      
+      To use ROS2 in new terminals, run:
+      source /opt/ros/{{ ros2_distro_to_use }}/setup.bash
+      
+      Or it will be automatically sourced from your ~/.bashrc
+      
+      Try the examples:
+      Terminal 1: ros2 run demo_nodes_cpp talker
+      Terminal 2: ros2 run demo_nodes_py listener
