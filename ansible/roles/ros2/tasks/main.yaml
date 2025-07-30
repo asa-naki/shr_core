@@ -102,10 +102,11 @@
 # Environment setup
 - name: Create ROS2 setup script in user's bashrc
   ansible.builtin.lineinfile:
-    path: "{{ ansible_env.HOME }}/.bashrc"
+    path: "/home/{{ ansible_user | default(ansible_env.SUDO_USER) }}/.bashrc"
     line: "source /opt/ros/{{ ros2_distro_to_use }}/setup.bash"
     state: present
     create: true
+  become: false
 
 - name: Source ROS2 environment for verification
   ansible.builtin.shell: |
@@ -138,7 +139,7 @@
     name: "{{ ros2_additional_packages }}"
     state: present
   become: true
-  when: 
+  when:
     - ros2_additional_packages is defined
     - ros2_additional_packages | length > 0
 
@@ -176,17 +177,17 @@
   ansible.builtin.debug:
     msg: |
       ROS2 {{ ros2_distro_to_use }} installation completed successfully!
-      
+
       ROS2 Desktop package installed with:
       - ROS2 core libraries
       - RViz visualization tool
       - Demo nodes and tutorials
-      
+
       To use ROS2 in new terminals, run:
       source /opt/ros/{{ ros2_distro_to_use }}/setup.bash
-      
+
       Or it will be automatically sourced from your ~/.bashrc
-      
+
       Try the examples:
       Terminal 1: ros2 run demo_nodes_cpp talker
       Terminal 2: ros2 run demo_nodes_py listener
