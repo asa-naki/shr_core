@@ -4,7 +4,7 @@
   <name>servo_control_ros2</name>
   <version>0.1.0</version>
   <description>ROS2 package for controlling servo motors with position setting capabilities.</description>
-  <maintainer email="your_email@example.com">Your Name</maintainer>
+  <maintainer email="aki.grade2580@outlook.jp">asa-naki</maintainer>
   <license>MIT</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
