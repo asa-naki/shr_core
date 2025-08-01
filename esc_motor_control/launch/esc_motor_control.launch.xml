@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!--
+ESC Motor Control launch file
+ESCモータコントローラを起動
+-->
+<launch>
+    <!-- Launch Arguments -->
+    <arg name="config_file" default="$(find-pkg-share esc_motor_control)/config/esc_motor_control.yaml" description="Path to the config file" />
+
+    <!-- ESC Motor Control Node -->
+    <node pkg="esc_motor_control" exec="esc_motor_control_node" name="esc_motor_control" output="screen">
+        <param from="$(var config_file)" />
+    </node>
+
+</launch>

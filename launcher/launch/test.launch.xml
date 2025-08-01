@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<!--
+テスト・デバッグ用ランチファイル
+シンプルな構成でシステムをテスト
+-->
+<launch>
+  <!-- Launch Arguments -->
+  <arg name="use_sim_time" default="false" description="Use simulation time" />
+  <arg name="joy_device" default="/dev/input/js0" description="Joystick device path" />
+
+  <!-- Joy node (from joy package) -->
+  <node pkg="joy" exec="joy_node" name="joy_node" output="screen">
+    <param name="dev" value="$(var joy_device)" />
+    <param name="deadzone" value="0.05" />
+    <param name="autorepeat_rate" value="20.0" />
+    <param name="use_sim_time" value="$(var use_sim_time)" />
+  </node>
+
+  <!-- DDT Motor Controller Node (basic test) -->
+  <node pkg="ddt_motor_control" exec="ddt_motor_controller_node.py" name="ddt_motor_controller" output="screen">
+    <param name="use_sim_time" value="$(var use_sim_time)" />
+  </node>
+
+</launch>

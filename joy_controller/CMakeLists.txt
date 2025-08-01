@@ -70,12 +70,12 @@ install(DIRECTORY
 
 install(DIRECTORY
   launch/
-  DESTINATION share/joy_controller/
+  DESTINATION share/${PROJECT_NAME}/launch
 )
 
 install(DIRECTORY
   config/
-  DESTINATION share/joy_controller/
+  DESTINATION share/${PROJECT_NAME}/config
 )
 
 if(BUILD_TESTING)

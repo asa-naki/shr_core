@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!--
+Servo Control launch file
+サーボ制御ノードを起動
+-->
+<launch>
+    <!-- Servo Controller Node -->
+    <node pkg="servo_control_ros2" exec="servo_node" name="servo_controller" output="screen" />
+
+</launch>
