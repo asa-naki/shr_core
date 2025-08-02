@@ -39,8 +39,13 @@
   </group>
 
   <!-- Servo Controller Group -->
-  <group if="$(var enable_servo)">
+  <!-- <group if="$(var enable_servo)">
     <include file="$(find-pkg-share servo_control_ros2)/launch/servo_launch.xml" />
+  </group> -->
+  <group if="$(var enable_servo)">
+    <include file="$(find-pkg-share launcher)/launch/servo_system.launch.xml">
+      <arg name="use_sim_time" value="$(var use_sim_time)" />
+    </include>
   </group>
 
   <!-- RViz Visualization -->

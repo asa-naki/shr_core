@@ -1,23 +1,56 @@
 <?xml version="1.0"?>
 <!--
-サーボ制御システム用ランチファイル
-サーボモータとジョイスティック制御を組み合わせ
+複数サーボ制御システム用ランチファイル
+servo_pitch（チルト用）とservo_shot（発射用）サーボモータを個別のnamespaceで制御
+ジョイスティック制御も組み合わせ可能
 -->
 <launch>
   <!-- Launch Arguments -->
   <arg name="use_sim_time" default="false" description="Use simulation time" />
-  <arg name="enable_joy_controller" default="true" description="Enable joy controller" />
-  <arg name="joy_device" default="/dev/input/js0" description="Joystick device path" />
+  <!-- <arg name="enable_joy_controller" default="true" description="Enable joy controller" /> -->
+  <!-- <arg name="joy_device" default="/dev/input/js0" description="Joystick device path" /> -->
 
-  <!-- Servo Controller -->
-  <include file="$(find-pkg-share servo_control_ros2)/launch/servo_launch.xml" />
+  <!-- Servo Configuration Arguments -->
+  <arg name="servo_port" default="/dev/ttyUSB0" description="Servo communication port" />
+  <arg name="servo_baudrate" default="57600" description="Servo communication baudrate" />
+  <arg name="servo_pitch_id" default="1" description="Servo pitch motor ID" />
+  <arg name="servo_shot_id" default="2" description="Servo shot motor ID" />
+  <arg name="enable_servo_pitch" default="true" description="Enable servo pitch motor" />
+  <arg name="enable_servo_shot" default="true" description="Enable servo shot motor" />
+
+  <!-- Servo Controllers -->
+  <!-- Servo Pitch Motor -->
+  <group if="$(var enable_servo_pitch)">
+    <push-ros-namespace namespace="servo_pitch" />
+    <node pkg="servo_control_ros2" exec="servo_node" name="servo_controller" output="screen">
+      <param name="servo_id" value="$(var servo_pitch_id)" />
+      <param name="port_name" value="$(var servo_port)" />
+      <param name="baudrate" value="$(var servo_baudrate)" />
+      <remap from="servo_position" to="position_command" />
+      <remap from="servo_status" to="status" />
+      <remap from="current_position" to="current_position" />
+    </node>
+  </group>
+
+  <!-- Servo Shot Motor -->
+  <group if="$(var enable_servo_shot)">
+    <push-ros-namespace namespace="servo_shot" />
+    <node pkg="servo_control_ros2" exec="servo_node" name="servo_controller" output="screen">
+      <param name="servo_id" value="$(var servo_shot_id)" />
+      <param name="port_name" value="$(var servo_port)" />
+      <param name="baudrate" value="$(var servo_baudrate)" />
+      <remap from="servo_position" to="position_command" />
+      <remap from="servo_status" to="status" />
+      <remap from="current_position" to="current_position" />
+    </node>
+  </group>
 
   <!-- Joy Controller (optional) -->
-  <group if="$(var enable_joy_controller)">
+  <!-- <group if="$(var enable_joy_controller)">
     <include file="$(find-pkg-share joy_controller)/launch/joy_controller.launch.xml">
       <arg name="use_sim_time" value="$(var use_sim_time)" />
       <arg name="joy_device" value="$(var joy_device)" />
     </include>
-  </group>
+  </group> -->
 
 </launch>
