@@ -12,9 +12,9 @@ servo_pitch（チルト用）とservo_shot（発射用）サーボモータを�
 
   <!-- Servo Configuration Arguments -->
   <arg name="servo_port" default="/dev/ttyUSB0" description="Servo communication port" />
-  <arg name="servo_baudrate" default="57600" description="Servo communication baudrate" />
-  <arg name="servo_pitch_id" default="1" description="Servo pitch motor ID" />
-  <arg name="servo_shot_id" default="2" description="Servo shot motor ID" />
+  <arg name="servo_baudrate" default="115200" description="Servo communication baudrate" />
+  <arg name="servo_pitch_id" default="11" description="Servo pitch motor ID" />
+  <arg name="servo_shot_id" default="10" description="Servo shot motor ID" />
   <arg name="enable_servo_pitch" default="true" description="Enable servo pitch motor" />
   <arg name="enable_servo_shot" default="true" description="Enable servo shot motor" />
 

@@ -32,15 +32,6 @@ install(FILES
   DESTINATION share/${PROJECT_NAME}
 )
 
-# Create symbolic links for easy access
-install(CODE "
-  file(MAKE_DIRECTORY \${CMAKE_INSTALL_PREFIX}/bin)
-  execute_process(
-    COMMAND \${CMAKE_COMMAND} -E create_symlink
-    \${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/scripts/launch_shr.sh
-    \${CMAKE_INSTALL_PREFIX}/bin/launch_shr
-  )
-")
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
