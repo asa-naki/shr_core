@@ -210,44 +210,39 @@ class ESCMotorControlNode(Node):
                     self.get_logger().info('🔴 フルスピードボタンが離されました')
                     self.full_speed_active = False
                     self.set_motor_speed(0.0)
-            
-            # 左スティック縦軸での速度制御（フルスピードボタンが押されていない時）
-            if not self.full_speed_active and len(msg.axes) > 1:
-                speed = msg.axes[1]  # 左スティック縦軸
-                self.set_motor_speed(speed)
-                
+                            
         except Exception as e:
             self.get_logger().error(f'ジョイスティック処理エラー: {str(e)}')
     
-    def cmd_vel_callback(self, msg: Twist):
-        """cmd_velコールバック"""
-        try:
-            # 線形速度をモーター速度に変換
-            speed = msg.linear.x
-            self.set_motor_speed(speed)
+    # def cmd_vel_callback(self, msg: Twist):
+    #     """cmd_velコールバック"""
+    #     try:
+    #         # 線形速度をモーター速度に変換
+    #         speed = msg.linear.x
+    #         self.set_motor_speed(speed)
             
-        except Exception as e:
-            self.get_logger().error(f'cmd_vel処理エラー: {str(e)}')
+    #     except Exception as e:
+    #         self.get_logger().error(f'cmd_vel処理エラー: {str(e)}')
     
-    def speed_callback(self, msg: Float32):
-        """直接速度指令コールバック"""
-        try:
-            self.set_motor_speed(msg.data)
+    # def speed_callback(self, msg: Float32):
+    #     """直接速度指令コールバック"""
+    #     try:
+    #         self.set_motor_speed(msg.data)
             
-        except Exception as e:
-            self.get_logger().error(f'速度指令処理エラー: {str(e)}')
+    #     except Exception as e:
+    #         self.get_logger().error(f'速度指令処理エラー: {str(e)}')
     
-    def emergency_stop_callback(self, msg: Bool):
-        """緊急停止コールバック"""
-        with self.lock:
-            if msg.data and not self.emergency_stop_active:
-                self.get_logger().warn('🚨 緊急停止が作動しました！')
-                self.emergency_stop_active = True
-                self.set_motor_speed(0.0)
+    # def emergency_stop_callback(self, msg: Bool):
+    #     """緊急停止コールバック"""
+    #     with self.lock:
+    #         if msg.data and not self.emergency_stop_active:
+    #             self.get_logger().warn('🚨 緊急停止が作動しました！')
+    #             self.emergency_stop_active = True
+    #             self.set_motor_speed(0.0)
                 
-            elif not msg.data and self.emergency_stop_active:
-                self.get_logger().info('✅ 緊急停止が解除されました')
-                self.emergency_stop_active = False
+    #         elif not msg.data and self.emergency_stop_active:
+    #             self.get_logger().info('✅ 緊急停止が解除されました')
+    #             self.emergency_stop_active = False
     
     def safety_check(self):
         """安全チェックタイマー"""

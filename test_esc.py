@@ -4,15 +4,42 @@
 import time
 from gpiozero import Servo
 import sys
+import platform
+
+# システム情報を表示
+print(f"🔍 システム情報: {platform.system()} {platform.machine()}")
+try:
+    with open('/proc/cpuinfo', 'r') as f:
+        for line in f:
+            if 'Model' in line:
+                print(f"🔍 {line.strip()}")
+                break
+except:
+    pass
 
 # pigpioピンファクトリーを使用を試行、失敗した場合はソフトウェアPWMを使用
+pin_factory_used = "デフォルト"
 try:
     from gpiozero.pins.pigpio import PiGPIOFactory
     from gpiozero import Device
-    Device.pin_factory = PiGPIOFactory()
-    print("pigpioピンファクトリーを使用します（高精度PWM）")
+    
+    # pigpiodが動作しているかテスト
+    test_factory = PiGPIOFactory()
+    Device.pin_factory = test_factory
+    pin_factory_used = "pigpio（高精度PWM）"
+    print(f"✅ {pin_factory_used}を使用します")
+
+except ImportError:
+    print("⚠️ pigpioライブラリがインストールされていません。デフォルトPWMを使用します")
 except Exception as e:
-    print(f"pigpioが利用できません。ソフトウェアPWMを使用します: {e}")
+    print(f"⚠️ pigpioが利用できません（理由: {str(e)[:50]}...）")
+    print("デフォルトPWMを使用します")
+    # デフォルトピンファクトリーに戻す
+    try:
+        from gpiozero import Device
+        Device.pin_factory = None
+    except:
+        pass
 
 PIN = 13
 # ESC用のパルス幅設定（1.0ms〜2.0msがより安全）
@@ -34,8 +61,40 @@ if confirm not in ['yes', 'y']:
 
 print("\n=== ESC初期化プロセス ===")
 print("⚠️  注意: 初期化中はモーターに触れないでください")
-servo = Servo(PIN, min_pulse_width=1.0/1000, max_pulse_width=2.0/1000)
-servo.min()
+
+# Servoオブジェクトを安全に作成
+try:
+    servo = Servo(PIN, min_pulse_width=1.0/1000, max_pulse_width=2.0/1000)
+    print(f"✅ GPIO{PIN}でServoオブジェクトを作成しました（{pin_factory_used}使用）")
+except Exception as e:
+    error_msg = str(e).lower()
+    print(f"❌ Servoオブジェクトの作成に失敗しました: {e}")
+    print("\n🔧 トラブルシューティング:")
+    
+    if "permission" in error_msg or "cannot determine soc" in error_msg:
+        print("🚨 GPIO権限の問題が検出されました！")
+        print("📋 解決方法（以下を順番に試してください）:")
+        print("1. sudo権限で実行: sudo python3 test_esc.py")
+        print("2. ログアウト/ログインして権限を更新")
+        print("3. システム再起動: sudo reboot")
+        print("4. 権限設定スクリプトを実行:")
+        print("   sudo usermod -a -G gpio,dialout $USER")
+        print("   sudo chmod 666 /dev/gpiomem*")
+    else:
+        print("1. Raspberry Piで実行していますか？")
+        print("2. sudo権限で実行してみてください: sudo python3 test_esc.py") 
+        print("3. 他のプロセスがGPIOを使用していないか確認してください")
+        print("4. システムを再起動してみてください")
+    
+    sys.exit(1)
+
+# 初期状態を停止に設定
+try:
+    servo.min()  # 停止状態
+    print("✅ 初期状態を停止に設定しました")
+except Exception as e:
+    print(f"⚠️ 初期設定中にエラー: {e}")
+    print("継続して実行しますが、動作に問題がある場合は再起動してください")
 # ESC初期化シーケンス：最大スロットル位置に設定
 
 
