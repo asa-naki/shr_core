@@ -20,11 +20,6 @@ install(DIRECTORY
   FILES_MATCHING PATTERN "*.xml"
 )
 
-# Install scripts
-install(PROGRAMS
-  launch_shr.sh
-  DESTINATION share/${PROJECT_NAME}/scripts
-)
 
 # Install documentation
 install(FILES
