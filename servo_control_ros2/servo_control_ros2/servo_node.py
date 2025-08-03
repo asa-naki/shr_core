@@ -22,22 +22,18 @@ class ServoNode(Node):
         if not self.tester.connect():
             self.get_logger().error("接続に失敗しました")
             return
-        # サーボID別のトピック名を作成
-        position_topic = f'servo_{servo_id}/position'
-        status_topic = f'servo_{servo_id}/status'
-        current_position_topic = f'servo_{servo_id}/current_position'
-
+    
         # サブスクライバーとパブリッシャーを作成
         self.position_subscription = self.create_subscription(
             Int32,
-            position_topic,
+            'servo_position',
             self.position_callback,
             10
         )
-
-        self.status_publisher = self.create_publisher(Bool, status_topic, 10)
-        self.current_position_publisher = self.create_publisher(Int32, current_position_topic, 10)
-
+        
+        self.status_publisher = self.create_publisher(Bool, 'servo_status', 10)
+        self.current_position_publisher = self.create_publisher(Int32, 'current_position', 10)
+        
         # 定期的に現在位置を公開
         self.timer = self.create_timer(0.1, self.publish_current_position)
         
