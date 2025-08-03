@@ -92,26 +92,26 @@ class ESCMotorControlNode(Node):
             10
         )
         
-        self.cmd_vel_subscription = self.create_subscription(
-            Twist,
-            self.cmd_vel_topic,
-            self.cmd_vel_callback,
-            10
-        )
+        # self.cmd_vel_subscription = self.create_subscription(
+        #     Twist,
+        #     self.cmd_vel_topic,
+        #     self.cmd_vel_callback,
+        #     10
+        # )
         
-        self.speed_subscription = self.create_subscription(
-            Float32,
-            'motor_speed',
-            self.speed_callback,
-            10
-        )
+        # self.speed_subscription = self.create_subscription(
+        #     Float32,
+        #     'motor_speed',
+        #     self.speed_callback,
+        #     10
+        # )
         
-        self.emergency_stop_subscription = self.create_subscription(
-            Bool,
-            'emergency_stop',
-            self.emergency_stop_callback,
-            qos_profile
-        )
+        # self.emergency_stop_subscription = self.create_subscription(
+        #     Bool,
+        #     'emergency_stop',
+        #     self.emergency_stop_callback,
+        #     qos_profile
+        # )
         
         # パブリッシャー
         self.status_publisher = self.create_publisher(Float32, 'motor_status', 10)
