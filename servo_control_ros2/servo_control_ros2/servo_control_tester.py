@@ -10,9 +10,10 @@ import struct
 from datetime import datetime
 
 class ServoControlTester:
-    def __init__(self, port='/dev/ttyUSB0', baudrate=115200):
+    def __init__(self, port='/dev/ttyUSB0', baudrate=115200, servo_id=1):
         self.port = port
         self.baudrate = baudrate
+        self.servo_id = servo_id
         self.ser = None
         self.connected = False
         
