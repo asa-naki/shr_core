@@ -40,39 +40,45 @@ class ServoControlTester:
             263: {"name": "Present Current", "value": 0, "type": "read", "description": "現在電流"},
         }
         
-    def calculate_crc16(self, data):
-        """Modbus CRC16計算"""
-        crc = 0xFFFF
-        for byte in data:
-            crc ^= byte
-            for _ in range(8):
-                if crc & 1:
-                    crc >>= 1
-                    crc ^= 0xA001
-                else:
-                    crc >>= 1
-        return crc
+    def calculate_checksum(self, data):
+        """サーボプロトコル用チェックサム計算"""
+        # ID + 長さ + コマンド + パラメータの合計の最下位1バイトを反転
+        checksum = sum(data) & 0xFF
+        return (~checksum) & 0xFF
         
-    def create_modbus_command(self, slave_id, function_code, address, value):
-        """Modbusコマンド作成（CRC付き）"""
-        cmd = struct.pack('>BBHH', slave_id, function_code, address, value)
-        crc = self.calculate_crc16(cmd)
-        cmd += struct.pack('<H', crc)
-        return cmd
+    def create_servo_command(self, servo_id, command, parameters=None):
+        """サーボコマンド作成（データシート準拠）"""
+        if parameters is None:
+            parameters = []
+        
+        # パケット構成: ヘッダ（0xFF 0xFF） | ID | 長さ | コマンド | パラメータ | チェックサム
+        length = len(parameters) + 2  # パラメータ数 + 2
+        
+        # データ部分（チェックサム計算用）
+        data = [servo_id, length, command] + parameters
+        checksum = self.calculate_checksum(data)
+        
+        # 完全なパケット
+        packet = [0xFF, 0xFF] + data + [checksum]
+        return bytes(packet)
         
     def verify_checksum(self, data):
         """チェックサム検証"""
-        if len(data) < 3:
+        if len(data) < 6:  # 最小パケットサイズ
             return False
             
-        # データ部分（最後の2バイトを除く）
-        data_part = data[:-2]
-        # 受信したCRC
-        received_crc = struct.unpack('<H', data[-2:])[0]
-        # 計算したCRC
-        calculated_crc = self.calculate_crc16(data_part)
+        # ヘッダー確認
+        if data[0] != 0xFF or data[1] != 0xFF:
+            return False
+            
+        # データ部分（ID、長さ、エラー/コマンド、パラメータ）
+        data_part = data[2:-1]
+        # 受信したチェックサム
+        received_checksum = data[-1]
+        # 計算したチェックサム
+        calculated_checksum = self.calculate_checksum(data_part)
         
-        return received_crc == calculated_crc
+        return received_checksum == calculated_checksum
 
     def connect(self):
         """シリアル接続"""
@@ -110,23 +116,24 @@ class ServoControlTester:
             self.ser.reset_input_buffer()
             self.ser.reset_output_buffer()
             
-            # RS485送信制御
-            self.ser.rts = True
-            time.sleep(0.001)
+            # RS485送信制御（必要に応じて）
+            if hasattr(self.ser, 'rts'):
+                self.ser.rts = True
+                time.sleep(0.001)
             
             # コマンド送信
             self.ser.write(cmd_bytes)
             self.ser.flush()
             
-            # RS485受信制御
-            self.ser.rts = False
-            time.sleep(0.001)
+            # RS485受信制御（必要に応じて）
+            if hasattr(self.ser, 'rts'):
+                self.ser.rts = False
             
             if not expect_response:
                 return True
                 
-            # 応答受信
-            time.sleep(0.01)
+            # 応答受信（リターン遅延時間を考慮）
+            time.sleep(0.02)  # サーボの応答待機時間を少し長めに
             response = self.ser.read(50)
             
             if response:
@@ -134,7 +141,7 @@ class ServoControlTester:
                 if self.verify_checksum(response):
                     return response
                 else:
-                    print(f"チェックサムエラー")
+                    print(f"チェックサムエラー: {[hex(b) for b in response]}")
                     return None
             else:
                 return None
@@ -143,41 +150,54 @@ class ServoControlTester:
             print(f"通信エラー: {e}")
             return None
 
-    def read_register(self, address):
-        """レジスタ読み取り"""
+    def read_register(self, address, servo_id=None):
+        """レジスタ読み取り（データシート準拠）"""
         if not self.connected:
             return None
             
-        cmd = self.create_modbus_command(1, 3, address, 1)
+        if servo_id is None:
+            servo_id = self.servo_id
+            
+        # READ DATA コマンド (0x02): 開始アドレス(2バイト)、読み出し長(2バイト)
+        address_bytes = [(address >> 8) & 0xFF, address & 0xFF]
+        length_bytes = [0x00, 0x02]  # 2バイト読み出し
+        parameters = address_bytes + length_bytes
+        
+        cmd = self.create_servo_command(servo_id, 0x02, parameters)
         response = self.send_command(cmd)
         
-        if response and len(response) >= 5 and response[1] == 3:
-            value = struct.unpack('>H', response[3:5])[0]
-            return value
-        elif response and response[1] & 0x80:
-            return None
-        else:
-            return None
+        if response and len(response) >= 8:
+            # 応答パケット: FF FF ID 長さ エラーステータス パラメータ チェックサム
+            if response[4] == 0:  # エラーステータス = 0（正常）
+                # パラメータ部分から値を取得（2バイト）
+                if len(response) >= 8:
+                    value = (response[5] << 8) | response[6]
+                    return value
+                    
+        return None
 
-    def write_register(self, address, value):
-        """レジスタ書き込み"""
+    def write_register(self, address, value, servo_id=None):
+        """レジスタ書き込み（データシート準拠）"""
         if not self.connected:
             return False
             
-        cmd = self.create_modbus_command(1, 6, address, value)
+        if servo_id is None:
+            servo_id = self.servo_id
+            
+        # WRITE DATA コマンド (0x03): 書き込み開始アドレス(2バイト)、データ(2バイト)
+        address_bytes = [(address >> 8) & 0xFF, address & 0xFF]
+        value_bytes = [(value >> 8) & 0xFF, value & 0xFF]
+        parameters = address_bytes + value_bytes
+        
+        cmd = self.create_servo_command(servo_id, 0x03, parameters)
         response = self.send_command(cmd)
         
         if response and len(response) >= 6:
-            # エコーバック確認
-            echo_addr = struct.unpack('>H', response[2:4])[0]
-            echo_value = struct.unpack('>H', response[4:6])[0]
-            
-            if echo_addr == address and echo_value == value:
+            # 応答パケット: FF FF ID 長さ エラーステータス チェックサム
+            if response[4] == 0:  # エラーステータス = 0（正常）
                 return True
-            else:
-                return False
-        else:
-            return False
+                
+        return False
 
     def setPos(self, position, enable_torque=True, timeout=5.0):
         """
@@ -224,3 +244,241 @@ class ServoControlTester:
         except Exception as e:
             print(f"setPos エラー: {e}")
             return False
+            
+    def ping(self, servo_id=None):
+        """PING - サーボの状態照会"""
+        if not self.connected:
+            return False
+            
+        if servo_id is None:
+            servo_id = self.servo_id
+            
+        cmd = self.create_servo_command(servo_id, 0x01, [])  # PING コマンド
+        response = self.send_command(cmd)
+        
+        if response and len(response) >= 6:
+            if response[4] == 0:  # エラーステータス = 0（正常）
+                return True
+                
+        return False
+    
+    def sync_write(self, address, servo_data_list):
+        """
+        SYNC WRITE - 複数サーボへの同時書き込み
+        
+        Args:
+            address (int): 書き込み開始アドレス
+            servo_data_list (list): [(servo_id, value1, value2, ...), ...] のリスト
+            
+        Returns:
+            bool: 送信成功/失敗
+        """
+        if not self.connected or not servo_data_list:
+            return False
+            
+        # データ長を最初のサーボのデータから計算
+        data_length = len(servo_data_list[0]) - 1  # servo_idを除く
+        
+        # パラメータ構築: 開始アドレス(2バイト) + データ長(1バイト) + 各サーボのデータ
+        parameters = []
+        parameters.extend([(address >> 8) & 0xFF, address & 0xFF])  # 開始アドレス
+        parameters.append(data_length * 2)  # データ長（バイト数）
+        
+        # 各サーボのデータ
+        for servo_data in servo_data_list:
+            servo_id = servo_data[0]
+            values = servo_data[1:]
+            
+            parameters.append(servo_id)
+            for value in values:
+                parameters.extend([(value >> 8) & 0xFF, value & 0xFF])
+        
+        cmd = self.create_servo_command(0xFE, 0x83, parameters)  # SYNC WRITE, ブロードキャストID
+        response = self.send_command(cmd, expect_response=False)  # 応答なし
+        
+        return response is not None
+    
+    def action(self):
+        """ACTION - REG WRITEの実行トリガー"""
+        if not self.connected:
+            return False
+            
+        cmd = self.create_servo_command(0xFE, 0x05, [])  # ACTION コマンド、ブロードキャストID
+        response = self.send_command(cmd, expect_response=False)  # 応答なし
+        
+        return response is not None
+    
+    def reg_write(self, address, value, servo_id=None):
+        """REG WRITE - 非同期書き込み（後で実行）"""
+        if not self.connected:
+            return False
+            
+        if servo_id is None:
+            servo_id = self.servo_id
+            
+        # REG WRITE コマンド (0x04): 書き込み開始アドレス(2バイト)、データ(2バイト)
+        address_bytes = [(address >> 8) & 0xFF, address & 0xFF]
+        value_bytes = [(value >> 8) & 0xFF, value & 0xFF]
+        parameters = address_bytes + value_bytes
+        
+        cmd = self.create_servo_command(servo_id, 0x04, parameters)
+        response = self.send_command(cmd)
+        
+        if response and len(response) >= 6:
+            if response[4] == 0:  # エラーステータス = 0（正常）
+                return True
+                
+        return False
+    
+    def setPos_multi(self, servo_positions, enable_torque=True, timeout=5.0):
+        """
+        複数サーボの位置設定（SYNC WRITE使用）
+        
+        Args:
+            servo_positions (dict): {servo_id: position, ...}
+            enable_torque (bool): トルク有効化
+            timeout (float): 動作完了待機時間
+            
+        Returns:
+            bool: 設定成功/失敗
+        """
+        if not self.connected or not servo_positions:
+            return False
+            
+        try:
+            # 1. トルク有効化（各サーボ個別）
+            if enable_torque:
+                for servo_id in servo_positions.keys():
+                    if not self.write_register(129, 1, servo_id):  # Torque Enable
+                        print(f"サーボID {servo_id} のトルク有効化に失敗")
+                        return False
+                time.sleep(0.1)
+            
+            # 2. 位置コマンドをSYNC WRITEで送信
+            servo_data_list = []
+            for servo_id, position in servo_positions.items():
+                servo_data_list.append((servo_id, position))
+            
+            if not self.sync_write(128, servo_data_list):  # Goal Position
+                print("SYNC WRITE失敗")
+                return False
+            
+            # 3. 動作完了待機（全サーボ）
+            start_time = time.time()
+            while time.time() - start_time < timeout:
+                all_reached = True
+                
+                for servo_id, target_pos in servo_positions.items():
+                    current_pos = self.read_register(256, servo_id)  # Present Position
+                    if current_pos is None:
+                        continue
+                        
+                    diff = abs(current_pos - target_pos)
+                    if diff > 5:  # 目標位置に到達していない
+                        all_reached = False
+                        break
+                
+                if all_reached:
+                    return True
+                    
+                time.sleep(0.1)
+                
+            print("タイムアウト: 一部のサーボが目標位置に到達していません")
+            return False
+            
+        except Exception as e:
+            print(f"setPos_multi エラー: {e}")
+            return False
+    
+    def scan_servos(self, id_range=(1, 10)):
+        """
+        指定範囲のサーボIDをスキャンして接続されているサーボを検出
+        
+        Args:
+            id_range (tuple): (開始ID, 終了ID)
+            
+        Returns:
+            list: 検出されたサーボIDのリスト
+        """
+        found_servos = []
+        
+        print(f"サーボスキャン中 (ID {id_range[0]} - {id_range[1]})...")
+        
+        for servo_id in range(id_range[0], id_range[1] + 1):
+            if self.ping(servo_id):
+                found_servos.append(servo_id)
+                print(f"✓ サーボID {servo_id} 検出")
+            else:
+                print(f"  サーボID {servo_id} 未検出")
+            time.sleep(0.1)
+        
+        return found_servos
+    
+    def demo_multi_servo(self):
+        """複数サーボ制御のデモ"""
+        if not self.connected:
+            print("接続されていません")
+            return False
+            
+        # サーボスキャン
+        servos = self.scan_servos()
+        if not servos:
+            print("サーボが見つかりません")
+            return False
+            
+        print(f"検出されたサーボ: {servos}")
+        
+        # 複数サーボでの動作デモ
+        positions = [2048, 1024, 3072, 2048]  # 中央、左、右、中央
+        
+        for i, pos in enumerate(positions):
+            print(f"\n位置 {i+1}: {pos}")
+            
+            # 全サーボを同じ位置に移動
+            servo_positions = {servo_id: pos for servo_id in servos}
+            
+            if self.setPos_multi(servo_positions, timeout=3.0):
+                print("✓ 移動完了")
+            else:
+                print("✗ 移動失敗")
+                
+            time.sleep(2.0)
+        
+        return True
+
+
+if __name__ == "__main__":
+    # テスト実行例
+    tester = ServoControlTester(port='/dev/ttyUSB0', baudrate=115200, servo_id=1)
+    
+    try:
+        # 接続
+        if tester.connect():
+            print("=== サーボ制御テスト ===")
+            
+            # 単体サーボテスト
+            print("\n1. 単体サーボテスト")
+            if tester.ping():
+                print("✓ PING成功")
+                
+                # 位置読み取り
+                pos = tester.read_register(256)  # Present Position
+                if pos is not None:
+                    print(f"現在位置: {pos}")
+                
+                # 位置設定
+                if tester.setPos(2048):  # 中央位置
+                    print("✓ 位置設定成功")
+                else:
+                    print("✗ 位置設定失敗")
+            else:
+                print("✗ PING失敗")
+            
+            # 複数サーボテスト
+            print("\n2. 複数サーボテスト")
+            tester.demo_multi_servo()
+            
+    except KeyboardInterrupt:
+        print("\n中断されました")
+    finally:
+        tester.disconnect()
