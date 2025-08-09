@@ -54,7 +54,7 @@ This project provides a complete automation pipeline using Ansible and GitHub Ac
    ```bash
    git clone https://github.com/your-username/shr_core.git
    cd shr_core
-   make setup-deps
+   ansible-playbook ansible/playbooks/setup_kit.yaml -i localhost, --connection=local --ask-become-pass
    ```
 
 2. **Build ISOs**
