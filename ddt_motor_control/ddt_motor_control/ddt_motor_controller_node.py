@@ -20,8 +20,8 @@ BAUD_RATE = 115200
 MAX_MOTOR_RPM = 100  # モーターの最大RPM
 
 # 車輪パラメータ (メートル単位)
-WHEEL_RADIUS = 0.065  # 車輪の半径 (m)
-WHEEL_SEPARATION = 0.3  # 左右車輪間の距離 (m)
+WHEEL_RADIUS = 0.1  # 車輪の半径 (m)
+WHEEL_SEPARATION = 0.5  # 左右車輪間の距離 (m)
 
 def crc8_maxim(data):
     crc = 0x00
