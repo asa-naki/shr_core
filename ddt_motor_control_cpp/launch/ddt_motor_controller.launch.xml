@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Launch arguments -->
+    <arg name="config_file" default="ddt_motor_controller.yaml" description="Configuration file name in config directory"/>
+
+    <!-- DDT Motor Controller Node -->
+    <node pkg="ddt_motor_control_cpp" exec="ddt_motor_controller_node" name="ddt_motor_controller" output="screen">
+
+        <!-- Load parameters from config file -->
+        <param from="$(find-pkg-share ddt_motor_control_cpp)/config/$(var config_file)"/>
+    </node>
+</launch>

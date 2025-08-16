@@ -148,7 +148,7 @@ class ServoControlTester:
         if not self.connected:
             return None
             
-        cmd = self.create_modbus_command(1, 3, address, 1)
+        cmd = self.create_modbus_command(10, 3, address, 1)
         response = self.send_command(cmd)
         
         if response and len(response) >= 5 and response[1] == 3:
@@ -164,7 +164,7 @@ class ServoControlTester:
         if not self.connected:
             return False
             
-        cmd = self.create_modbus_command(1, 6, address, value)
+        cmd = self.create_modbus_command(10, 6, address, value)
         response = self.send_command(cmd)
         
         if response and len(response) >= 6:
@@ -196,28 +196,28 @@ class ServoControlTester:
             
         try:
             # 1. トルク有効化
-            if enable_torque:
-                if not self.write_register(129, 1):  # Torque Enable
-                    return False
-                time.sleep(0.1)
+            # if enable_torque:
+            #     if not self.write_register(129, 1):  # Torque Enable
+            #         return False
+                # time.sleep(0.1)
             
             # 2. 位置コマンド送信
             if not self.write_register(128, position):  # Goal Position
                 return False
             
-            # 3. 動作完了待機
-            start_time = time.time()
-            while time.time() - start_time < timeout:
-                # 現在位置確認
-                current_pos = self.read_register(256)  # Present Position
-                if current_pos is not None:
-                    diff = abs(current_pos - position)
+            # # 3. 動作完了待機
+            # start_time = time.time()
+            # while time.time() - start_time < timeout:
+            #     # 現在位置確認
+            #     current_pos = self.read_register(256)  # Present Position
+            #     if current_pos is not None:
+            #         diff = abs(current_pos - position)
                     
-                    # 目標位置に到達判定（±5の範囲内）
-                    if diff <= 5:
-                        return True
+            #         # 目標位置に到達判定（±5の範囲内）
+            #         if diff <= 5:
+            #             return True
                         
-                time.sleep(0.1)
+            #     time.sleep(0.1)
                 
             return False
             
