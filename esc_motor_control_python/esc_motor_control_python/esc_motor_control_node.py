@@ -210,6 +210,12 @@ class ESCMotorControlNode(Node):
                     self.get_logger().info('🔴 フルスピードボタンが離されました')
                     self.full_speed_active = False
                     self.set_motor_speed(0.0)
+                
+                elif full_speed_pressed and self.full_speed_active:
+                    # ボタンが押し続けられている間は最後のコマンド時刻を更新
+                    # 安全タイムアウトを防ぐため
+                    with self.lock:
+                        self.last_command_time = time.time()
                             
         except Exception as e:
             self.get_logger().error(f'ジョイスティック処理エラー: {str(e)}')
