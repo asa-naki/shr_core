@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Launch arguments -->
+    <arg name="config_file" default="ddt_motor_controller.yaml" description="Configuration file name in config directory"/>
+
+    <!-- Component Container -->
+    <node pkg="rclcpp_components" exec="component_container" name="ddt_motor_controller_container" output="screen"/>
+
+    <!-- Load DDT Motor Controller Component into container -->
+    <load_composable_node target="ddt_motor_controller_container">
+        <composable_node pkg="ddt_motor_control_cpp" plugin="ddt_motor_control_cpp::DdtMotorControllerComponent" name="ddt_motor_controller">
+            <param from="$(find-pkg-share ddt_motor_control_cpp)/config/$(var config_file)"/>
+        </composable_node>
+    </load_composable_node>
+</launch>
