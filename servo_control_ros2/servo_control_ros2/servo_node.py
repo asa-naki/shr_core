@@ -28,7 +28,7 @@ class ServoNode(Node):
             Int32,
             'servo_position',
             self.position_callback,
-            10
+            1
         )
         
         self.status_publisher = self.create_publisher(Bool, 'servo_status', 10)
@@ -40,7 +40,7 @@ class ServoNode(Node):
         self.get_logger().info("サーボノードが起動しました")
 
     def position_callback(self, msg):
-        self.get_logger().info(f"位置 {msg.data} に移動中...")
+        # self.get_logger().info(f"位置 {msg.data} に移動中...")
         success = self.tester.setPos(msg.data, enable_torque=True, timeout=1.0)
         
         # ステータスを公開
@@ -56,7 +56,7 @@ class ServoNode(Node):
     def publish_current_position(self):
         """現在位置を定期的に公開"""
         try:
-            current_pos = self.tester.read_register(256)  # Present Position
+            current_pos = self.tester.read_register(257)  # Present Position
             if current_pos is not None:
                 pos_msg = Int32()
                 pos_msg.data = current_pos

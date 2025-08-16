@@ -79,7 +79,7 @@ class DifferentialDriveController(Node):
             Twist,
             'cmd_vel',
             self.twist_callback,
-            10)
+            1)
         self.get_logger().info("Twistメッセージのサブスクライバーを作成しました")
         
         # MotorStatusメッセージのパブリッシャーを作成
