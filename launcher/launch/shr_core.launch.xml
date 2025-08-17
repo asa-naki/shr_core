@@ -13,7 +13,7 @@
 
   <!-- YDLiDAR Group -->
   <group if="$(var enable_lidar)">
-    <include file="$(find-pkg-share ydlidar_ros2_driver)/launch/ydlidar_launch.py">
+    <include file="$(find-pkg-share shr_launcher)/launch/lidar_driver.xml">
       <arg name="params_file" value="$(var lidar_params_file)" />
     </include>
   </group>

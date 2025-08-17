@@ -23,7 +23,7 @@ class ServoControlTester:
             1: {"name": "Firmware sub version No", "value": 2005, "type": "read", "description": "ファームウェアサブバージョン番号"},
             2: {"name": "Firmware Release version No", "value": 2025, "type": "read", "description": "ファームウェアリリースバージョン番号"},
             3: {"name": "Firmware Release date", "value": 423, "type": "read", "description": "ファームウェアリリース日"},
-            10: {"name": "ID", "value": 1, "type": "read_write", "description": "ID"},
+            10: {"name": "ID", "value": 10, "type": "read_write", "description": "ID"},
             11: {"name": "Baudrate", "value": 2, "type": "read_write", "description": "ボーレート"},
             12: {"name": "Return Delay Time", "value": 500, "type": "read_write", "description": "リターン遅延時間"},
             128: {"name": "Goal Position", "value": 2129, "type": "read_write", "description": "位置コマンド"},
@@ -143,28 +143,31 @@ class ServoControlTester:
             print(f"通信エラー: {e}")
             return None
 
-    def read_register(self, address):
+    def read_register(self, servo_id, address):
         """レジスタ読み取り"""
         if not self.connected:
             return None
-            
-        cmd = self.create_modbus_command(10, 3, address, 1)
+
+        cmd = self.create_modbus_command(servo_id, 3, address, 1)
         response = self.send_command(cmd)
-        
         if response and len(response) >= 5 and response[1] == 3:
+            # レジスタ値を抽出
             value = struct.unpack('>H', response[3:5])[0]
+            # レジスタ値を16進数の2bit表記から10進数に変換
+            # value = int(value)
+            # レジスタ名を取得
             return value
         elif response and response[1] & 0x80:
             return None
         else:
             return None
 
-    def write_register(self, address, value):
+    def write_register(self, id, address, value):
         """レジスタ書き込み"""
         if not self.connected:
             return False
             
-        cmd = self.create_modbus_command(10, 6, address, value)
+        cmd = self.create_modbus_command(id, 6, address, value)
         response = self.send_command(cmd)
         
         if response and len(response) >= 6:
@@ -179,7 +182,7 @@ class ServoControlTester:
         else:
             return False
 
-    def setPos(self, position, enable_torque=True, timeout=5.0):
+    def setPos(self, id,position, enable_torque=True, timeout=5.0):
         """
         位置設定メソッド
         
@@ -202,7 +205,7 @@ class ServoControlTester:
                 # time.sleep(0.1)
             
             # 2. 位置コマンド送信
-            if not self.write_register(128, position):  # Goal Position
+            if not self.write_register(id,128, position):  # Goal Position
                 return False
             
             # # 3. 動作完了待機
