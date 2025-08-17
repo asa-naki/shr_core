@@ -31,11 +31,11 @@ class ServoNode(Node):
             1
         )
         
-        self.status_publisher = self.create_publisher(Bool, 'servo_status', 1)
-        self.current_position_publisher = self.create_publisher(Int32, 'current_position', 1)
+        # self.status_publisher = self.create_publisher(Bool, 'servo_status', 1)
+        # self.current_position_publisher = self.create_publisher(Int32, 'current_position', 1)
         
         # 定期的に現在位置を公開
-        self.timer = self.create_timer(0.1, self.publish_current_position)
+        # self.timer = self.create_timer(0.1, self.publish_current_position)
         
         self.get_logger().info("サーボノードが起動しました")
 
@@ -53,16 +53,16 @@ class ServoNode(Node):
         # else:
         #     self.get_logger().error("移動失敗")
     
-    def publish_current_position(self):
-        """現在位置を定期的に公開"""
-        try:
-            current_pos = self.tester.read_register(self.tester.servo_id, 257)  # Present Position
-            if current_pos is not None:
-                pos_msg = Int32()
-                pos_msg.data = current_pos
-                self.current_position_publisher.publish(pos_msg)
-        except Exception as e:
-            self.get_logger().warn(f"位置読み取りエラー: {e}")
+    # def publish_current_position(self):
+    #     """現在位置を定期的に公開"""
+    #     try:
+    #         current_pos = self.tester.read_register(self.tester.servo_id, 257)  # Present Position
+    #         if current_pos is not None:
+    #             pos_msg = Int32()
+    #             pos_msg.data = current_pos
+    #             self.current_position_publisher.publish(pos_msg)
+    #     except Exception as e:
+    #         self.get_logger().warn(f"位置読み取りエラー: {e}")
 
     def destroy_node(self):
         if hasattr(self, 'tester'):
