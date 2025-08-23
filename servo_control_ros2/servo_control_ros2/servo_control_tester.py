@@ -112,7 +112,7 @@ class ServoControlTester:
             
             # RS485送信制御
             self.ser.rts = True
-            time.sleep(0.001)
+            # time.sleep(0.001)
             
             # コマンド送信
             self.ser.write(cmd_bytes)
@@ -120,7 +120,7 @@ class ServoControlTester:
             
             # RS485受信制御
             self.ser.rts = False
-            time.sleep(0.001)
+            # time.sleep(0.001)
             
             if not expect_response:
                 return True
