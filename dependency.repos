@@ -1,16 +1,4 @@
 repositories:
-    joy_to_twist:
-        type: git
-        url: https://github.com/asa-naki/joy_to_twist.git
-        version: master
-    feetech_ros2:
-        type: git
-        url: https://github.com/asa-naki/feetech_scs_ros2_driver.git
-        version: main
-    h6x_serial_interface:
-        type: git
-        url: https://github.com/HarvestX/h6x_serial_interface.git
-        version: humble
     ydlidar_sdk_vendor:
         type: git
         url: https://github.com/asa-naki/ydlidar_sdk_vendor.git
