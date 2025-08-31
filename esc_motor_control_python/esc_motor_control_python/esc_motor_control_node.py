@@ -45,7 +45,7 @@ class ESCMotorControlNode(Node):
         self.declare_parameter('min_speed', -1.0) 
         self.declare_parameter('enable_safety_stop', True)
         self.declare_parameter('safety_timeout', 1.0)
-        self.declare_parameter('full_speed_button', 1)
+        self.declare_parameter('full_speed_button', 3)
         self.declare_parameter('full_speed_value', 1.0)
         self.declare_parameter('test_mode', False)
         self.declare_parameter('joy_topic', 'joy')
@@ -89,7 +89,7 @@ class ESCMotorControlNode(Node):
             Joy,
             self.joy_topic,
             self.joy_callback,
-            10
+            1
         )
         
         # self.cmd_vel_subscription = self.create_subscription(

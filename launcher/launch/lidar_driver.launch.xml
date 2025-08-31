@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<!--
+Dual YDLiDAR T-semi Driver Launch File
+2つのYDLiDAR T-semiセンサーを起動
+-->
+<launch>
+  <!-- Launch Arguments -->
+  <arg name="use_sim_time" default="false" description="Use simulation time" />
+  <arg name="lidar1_config" default="$(find-pkg-share launcher)/config/lidar1_params.yaml" description="Config file for first LiDAR" />
+  <arg name="lidar2_config" default="$(find-pkg-share launcher)/config/lidar2_params.yaml" description="Config file for second LiDAR" />
+  <arg name="lidar1_frame" default="laser1_frame" description="Frame ID for first LiDAR" />
+  <arg name="lidar2_frame" default="laser2_frame" description="Frame ID for second LiDAR" />
+
+  <!-- First YDLiDAR T-semi -->
+  <node pkg="ydlidar_ros2_driver" exec="ydlidar_ros2_driver_node" name="ydlidar_driver_1" output="screen">
+    <param name="use_sim_time" value="$(var use_sim_time)" />
+    <param from="$(var lidar1_config)" />
+    <remap from="scan" to="scan1" />
+  </node>
+
+  <!-- Second YDLiDAR T-semi -->
+  <node pkg="ydlidar_ros2_driver" exec="ydlidar_ros2_driver_node" name="ydlidar_driver_2" output="screen">
+    <param name="use_sim_time" value="$(var use_sim_time)" />
+    <param from="$(var lidar2_config)" />
+    <remap from="scan" to="scan2" />
+  </node>
+
+  <!-- Static Transform Publishers -->
+  <!-- Transform for first LiDAR -->
+  <node pkg="tf2_ros" exec="static_transform_publisher" name="static_tf_pub_laser1" args="0.2 0 0.02 0 0 0 1 base_link $(var lidar1_frame)" />
+
+  <!-- Transform for second LiDAR -->
+  <node pkg="tf2_ros" exec="static_transform_publisher" name="static_tf_pub_laser2" args="-0.2 0 0.02 0 0 3.14159 1 base_link $(var lidar2_frame)" />
+
+</launch>

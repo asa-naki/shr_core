@@ -7,6 +7,7 @@ ROS2の統合型ジョイスティックコントローラーパッケージで�
 ### 基本機能
 
 - ジョイスティック入力をTwistメッセージに変換
+- **サーボモーターの位置制御**: 右スティックの値でサーボモーターを制御
 - 設定可能な入力スケーリング
 - デッドゾーン処理
 - パラメータの動的変更サポート
@@ -22,6 +23,7 @@ ROS2の統合型ジョイスティックコントローラーパッケージで�
 ### 出力トピック
 
 - `/cmd_vel` (geometry_msgs/Twist): 速度コマンド
+- `/servo_shot/position_command` (std_msgs/Int32): サーボモーターの位置コマンド
 - `/emergency_stop` (std_msgs/Bool): 緊急停止状態
 - `/turbo_mode` (std_msgs/Bool): ターボモード状態
 - `/precision_mode` (std_msgs/Bool): 精密モード状態
@@ -46,6 +48,9 @@ ros2 launch joy_controller joy_controller.launch.py
 # カスタム設定ファイルを使用
 ros2 launch joy_controller joy_controller.launch.py config_file:=/path/to/your/config.yaml
 
+# サーボ制御テスト起動
+ros2 launch joy_controller servo_test.launch.py debug_mode:=true
+
 # デバッグモードで起動
 ros2 run joy_controller joy_controller_node --ros-args -p debug_mode:=true
 ```
@@ -57,12 +62,34 @@ ros2 run joy_controller joy_controller_node --ros-args -p debug_mode:=true
 - **軸1** (左スティック Y): 前後移動 (linear.x)
 - **軸0** (左スティック X): 左右移動 (linear.y) - ホロノミックロボット用
 - **軸3** (右スティック X): 回転 (angular.z)
+- **軸2** (右スティック X): サーボ位置制御
 
 ### ボタン (Buttons)
 
 - **ボタン6**: 緊急停止トグル
 - **ボタン4** (L1/LB): ターボモードトグル
 - **ボタン5** (R1/RB): 精密モードトグル
+
+## サーボ制御
+
+右スティックのX軸でサーボモーターの位置を積分制御（増分制御）します：
+
+- **増分制御**: スティックの値に応じてサーボ位置が徐々に変化
+- **中央位置**: スティックが中央にあるとき、サーボ位置は現在位置を維持
+- **左方向**: スティックを左に倒すと位置が増加（最大位置: default 4096）
+- **右方向**: スティックを右に倒すと位置が減少（最小位置: default 0）
+- **デッドゾーン**: 小さな入力は無視されます (default: 0.1)
+- **増分レート**: スティック入力に応じた変化速度 (default: 10.0 units/message)
+
+### サーボ監視
+
+```bash
+# サーボ位置コマンドを監視
+ros2 topic echo /servo_shot/position_command
+
+# ジョイスティック入力を監視
+ros2 topic echo /joy
+```
 
 ## パラメータ
 
@@ -74,6 +101,15 @@ ros2 run joy_controller joy_controller_node --ros-args -p debug_mode:=true
 - `turbo_multiplier` (default: 2.0): ターボモード倍率
 - `precision_multiplier` (default: 0.3): 精密モード倍率
 - `deadzone_threshold` (default: 0.1): デッドゾーン閾値
+
+### サーボ制御パラメータ
+
+- `right_stick_x_axis` (default: 2): サーボ制御に使用する軸番号
+- `servo_min_position` (default: 0): サーボの最小位置
+- `servo_max_position` (default: 4096): サーボの最大位置
+- `servo_center_position` (default: 2048): サーボの初期位置
+- `servo_deadzone_threshold` (default: 0.1): サーボ制御のデッドゾーン
+- `servo_increment_rate` (default: 10.0): 増分レート（メッセージあたりの位置変化量）
 
 ### 安全パラメータ
 

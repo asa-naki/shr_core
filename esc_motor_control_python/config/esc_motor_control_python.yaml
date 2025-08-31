@@ -13,7 +13,7 @@ esc_motor_control_python:
     min_speed: -1.0 # Maximum reverse speed (-1.0 to 1.0)
 
     # Joystick settings
-    full_speed_button: 1 # Button number for full speed (0=A, 1=B, 2=X, 3=Y)
+    full_speed_button: 3 # Button number for full speed (0=A, 1=B, 2=X, 3=Y)
     full_speed_value: 1.0 # Speed value when full speed button is pressed
     joy_topic: "joy" # Joy topic name
     cmd_vel_topic: "cmd_vel" # cmd_vel topic name

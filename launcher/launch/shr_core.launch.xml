@@ -5,15 +5,15 @@
   <arg name="enable_lidar" default="false" description="Enable YDLiDAR" />
   <arg name="enable_joy_controller" default="true" description="Enable joy controller" />
   <arg name="enable_ddt_motor" default="true" description="Enable DDT motor controller" />
-  <arg name="enable_esc_motor" default="false" description="Enable ESC motor controller" />
-  <arg name="enable_servo" default="false" description="Enable servo controller" />
+  <arg name="enable_esc_motor" default="true" description="Enable ESC motor controller" />
+  <arg name="enable_servo" default="true" description="Enable servo controller" />
   <arg name="enable_rviz" default="false" description="Enable RViz visualization" />
   <arg name="joy_device" default="/dev/input/js0" description="Joystick device path" />
   <arg name="lidar_params_file" default="$(find-pkg-share ydlidar_ros2_driver)/params/Tmini.yaml" description="Path to the LiDAR parameters file" />
 
   <!-- YDLiDAR Group -->
   <group if="$(var enable_lidar)">
-    <include file="$(find-pkg-share ydlidar_ros2_driver)/launch/ydlidar_launch.py">
+    <include file="$(find-pkg-share shr_launcher)/launch/lidar_driver.launch.xml">
       <arg name="params_file" value="$(var lidar_params_file)" />
     </include>
   </group>
@@ -27,21 +27,20 @@
   </group>
 
   <!-- DDT Motor Controller Node -->
-  <node pkg="ddt_motor_control" exec="ddt_motor_controller_node.py" name="ddt_motor_controller" output="screen" if="$(var enable_ddt_motor)">
-    <param name="use_sim_time" value="$(var use_sim_time)" />
-  </node>
+  <group if="$(var enable_ddt_motor)">
+    <include file="$(find-pkg-share ddt_motor_control_cpp)/launch/ddt_motor_controller_component.launch.xml">
+      <arg name="use_sim_time" value="$(var use_sim_time)" />
+    </include>
+  </group>
 
   <!-- ESC Motor Controller Group -->
   <group if="$(var enable_esc_motor)">
-    <include file="$(find-pkg-share esc_motor_control)/launch/esc_motor_control.launch.xml">
+    <include file="$(find-pkg-share esc_motor_control_python)/launch/esc_motor_control_python.launch.xml">
       <arg name="use_sim_time" value="$(var use_sim_time)" />
     </include>
   </group>
 
   <!-- Servo Controller Group -->
-  <!-- <group if="$(var enable_servo)">
-    <include file="$(find-pkg-share servo_control_ros2)/launch/servo_launch.xml" />
-  </group> -->
   <group if="$(var enable_servo)">
     <include file="$(find-pkg-share launcher)/launch/servo_system.launch.xml">
       <arg name="use_sim_time" value="$(var use_sim_time)" />

@@ -12,6 +12,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', ['launch/esc_motor_control_python.launch.py']),
         ('share/' + package_name + '/config', ['config/esc_motor_control_python.yaml']),
+        ('share/' + package_name + '/launch', ['launch/esc_motor_control_python.launch.xml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
