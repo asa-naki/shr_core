@@ -1,12 +1,12 @@
-#ifndef MOTOR_CONTROL_LIB__SERVO_CONTROL_HPP_
-#define MOTOR_CONTROL_LIB__SERVO_CONTROL_HPP_
+#ifndef MOTOR_CONTROL_APP__SERVO_CONTROL_HPP_
+#define MOTOR_CONTROL_APP__SERVO_CONTROL_HPP_
 
 #include <cstdint>
 #include <map>
 #include <memory>
 #include <string>
 
-namespace motor_control_lib {
+namespace motor_control_app {
 
 /**
  * @brief サーボコントローラー基底クラス
@@ -218,6 +218,6 @@ private:
   std::shared_ptr<ServoControllerBase> servo_controller_;
 };
 
-}  // namespace motor_control_lib
+}  // namespace motor_control_app
 
-#endif  // MOTOR_CONTROL_LIB__SERVO_CONTROL_HPP_
+#endif  // MOTOR_CONTROL_APP__SERVO_CONTROL_HPP_

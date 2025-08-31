@@ -13,6 +13,7 @@ find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(motor_control_lib REQUIRED)
+find_package(joy REQUIRED)
 
 # Unified motor control node (コメントアウト)
 # add_executable(unified_motor_control_node src/unified_motor_control_node.cpp)
@@ -106,12 +107,45 @@ ament_target_dependencies(unified_motor_app
   motor_control_lib
 )
 
+# Shot Component (as a shared library for component loading)
+add_library(shot_component SHARED
+  src/shot_component.cpp
+)
+target_include_directories(shot_component PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+ament_target_dependencies(shot_component
+  rclcpp
+  rclcpp_components
+  std_msgs
+  geometry_msgs
+  sensor_msgs
+  motor_control_lib
+  joy
+)
+
+# Register the shot component
+rclcpp_components_register_nodes(shot_component "motor_control_app::ShotComponent")
+
+# Shot Component Node (standalone executable)
+add_executable(shot_component_node src/shot_component_node.cpp)
+target_include_directories(shot_component_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+target_link_libraries(shot_component_node shot_component)
+ament_target_dependencies(shot_component_node
+  rclcpp
+  motor_control_lib
+)
+
 # Install executables and libraries
-install(TARGETS simple_test_node simple_motor_app drive_component_node individual_motor_app unified_motor_app
+install(TARGETS simple_test_node simple_motor_app drive_component_node individual_motor_app unified_motor_app shot_component_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(TARGETS drive_component
+install(TARGETS drive_component shot_component
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib

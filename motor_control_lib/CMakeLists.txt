@@ -11,6 +11,7 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(joy REQUIRED)
 
 # Include directories
 include_directories(include)
@@ -44,6 +45,7 @@ ament_target_dependencies(servo_control_node
   std_msgs
   geometry_msgs
   sensor_msgs
+  joy
 )
 
 # Create servo test node executable
@@ -59,22 +61,20 @@ install(DIRECTORY include/
   DESTINATION include
 )
 
-# Install config and launch files
-install(DIRECTORY config/
-  DESTINATION share/${PROJECT_NAME}/config
-)
 
-install(DIRECTORY launch/
-  DESTINATION share/${PROJECT_NAME}/launch
-)
 
 # Export the library
-install(TARGETS motor_control_lib servo_control_node servo_test_node
+install(TARGETS motor_control_lib
   EXPORT motor_control_libTargets
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
   RUNTIME DESTINATION bin
   INCLUDES DESTINATION include
+)
+
+# Install executables separately
+install(TARGETS servo_control_node servo_test_node
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 ament_export_targets(motor_control_libTargets HAS_LIBRARY_TARGET)

@@ -1,7 +1,0 @@
-servo_control_node:
-  ros__parameters:
-    port: "/dev/ttyUSB0"
-    baudrate: 115200
-    pan_servo_id: 10
-    tilt_servo_id: 20
-    trigger_servo_id: 11
