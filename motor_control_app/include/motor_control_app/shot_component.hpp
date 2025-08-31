@@ -31,7 +31,6 @@ private:
   std::unique_ptr<motor_control_lib::ShotController> shot_controller_;
 
   int pan_servo_id_;
-  int tilt_servo_id_;
   int trigger_servo_id_;
   int fire_button_;
   int fire_position_;

@@ -11,7 +11,6 @@ ShotComponent::ShotComponent(const rclcpp::NodeOptions& options)
   this->declare_parameter("port", "/dev/ttyUSB0");
   this->declare_parameter("baudrate", 115200);
   this->declare_parameter("pan_servo_id", 1);
-  this->declare_parameter("tilt_servo_id", 2);
   this->declare_parameter("trigger_servo_id", 3);
   this->declare_parameter("fire_button", 0);         // 射撃ボタン（Aボタンなど）
   this->declare_parameter("fire_position", 1500);    // 射撃位置
@@ -22,7 +21,6 @@ ShotComponent::ShotComponent(const rclcpp::NodeOptions& options)
   std::string port = this->get_parameter("port").as_string();
   int baudrate = this->get_parameter("baudrate").as_int();
   pan_servo_id_ = this->get_parameter("pan_servo_id").as_int();
-  tilt_servo_id_ = this->get_parameter("tilt_servo_id").as_int();
   trigger_servo_id_ = this->get_parameter("trigger_servo_id").as_int();
   fire_button_ = this->get_parameter("fire_button").as_int();
   fire_position_ = this->get_parameter("fire_position").as_int();
@@ -61,8 +59,7 @@ ShotComponent::ShotComponent(const rclcpp::NodeOptions& options)
                                    std::bind(&ShotComponent::publishCurrentAim, this));
 
   // 最初にホーム位置に移動
-  if (!shot_controller_->returnHome(pan_servo_id_, tilt_servo_id_, trigger_servo_id_,
-                                    home_position_, home_position_, home_position_)) {
+  if (!servo_controller_->setPosition(trigger_servo_id_, home_position_, false)) {
     RCLCPP_WARN(this->get_logger(), "Failed to move to initial home position");
   }
 
@@ -104,14 +101,14 @@ void ShotComponent::executeShotSequence() {
   RCLCPP_INFO(this->get_logger(), "Starting shot sequence...");
 
   // 1. 射撃位置に移動
-  if (servo_controller_->setPosition(trigger_servo_id_, fire_position_, true)) {
+  if (servo_controller_->setPosition(trigger_servo_id_, fire_position_, false)) {
     RCLCPP_INFO(this->get_logger(), "Moved to fire position (%d)", fire_position_);
 
     // 射撃持続時間待機
     std::this_thread::sleep_for(std::chrono::milliseconds(fire_duration_ms_));
 
     // 2. ホーム位置に戻る
-    if (servo_controller_->setPosition(trigger_servo_id_, home_position_, true)) {
+    if (servo_controller_->setPosition(trigger_servo_id_, home_position_, false)) {
       RCLCPP_INFO(this->get_logger(), "Returned to home position (%d)", home_position_);
     } else {
       RCLCPP_ERROR(this->get_logger(), "Failed to return to home position");
@@ -125,12 +122,11 @@ void ShotComponent::executeShotSequence() {
 }
 
 void ShotComponent::aimCallback(const geometry_msgs::msg::Point::SharedPtr msg) {
-  // Point.x = pan位置 (0-4095), Point.y = tilt位置 (0-4095)
+  // Point.x = pan位置 (0-4095)
   uint16_t pan_position = static_cast<uint16_t>(std::max(0.0, std::min(4095.0, msg->x)));
-  uint16_t tilt_position = static_cast<uint16_t>(std::max(0.0, std::min(4095.0, msg->y)));
 
-  if (shot_controller_->aimAt(pan_servo_id_, tilt_servo_id_, pan_position, tilt_position)) {
-    RCLCPP_INFO(this->get_logger(), "Aiming at pan=%d, tilt=%d", pan_position, tilt_position);
+  if (servo_controller_->setPosition(pan_servo_id_, pan_position, false)) {
+    RCLCPP_INFO(this->get_logger(), "Aiming at pan=%d", pan_position);
   } else {
     RCLCPP_ERROR(this->get_logger(), "Failed to aim at target position");
   }
@@ -145,7 +141,7 @@ void ShotComponent::fireCallback(const std_msgs::msg::Bool::SharedPtr msg) {
 void ShotComponent::homeCallback(const std_msgs::msg::Bool::SharedPtr msg) {
   if (msg->data) {
     // ホーム位置に戻る
-    if (shot_controller_->returnHome(pan_servo_id_, tilt_servo_id_, trigger_servo_id_)) {
+    if (servo_controller_->setPosition(trigger_servo_id_, home_position_, false)) {
       RCLCPP_INFO(this->get_logger(), "Returned to home position");
     } else {
       RCLCPP_ERROR(this->get_logger(), "Failed to return home");
@@ -154,11 +150,11 @@ void ShotComponent::homeCallback(const std_msgs::msg::Bool::SharedPtr msg) {
 }
 
 void ShotComponent::publishCurrentAim() {
-  int32_t pan_position, tilt_position;
-  if (shot_controller_->getCurrentAim(pan_servo_id_, tilt_servo_id_, pan_position, tilt_position)) {
+  int32_t pan_position = servo_controller_->getCurrentPosition(pan_servo_id_);
+  if (pan_position != -1) {
     auto msg = std::make_unique<geometry_msgs::msg::Point>();
     msg->x = static_cast<double>(pan_position);
-    msg->y = static_cast<double>(tilt_position);
+    msg->y = 0.0;  // tilt機構なし
     msg->z = 0.0;
     current_aim_publisher_->publish(std::move(msg));
   }

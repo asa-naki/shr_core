@@ -3,7 +3,6 @@ shot_component:
     port: "/dev/ttyUSB0"
     baudrate: 115200
     pan_servo_id: 11
-    tilt_servo_id: 20
     trigger_servo_id: 10
     fire_button: 0 # Aボタン（通常0番）
     fire_position: 1500 # 射撃位置（押出位置）
