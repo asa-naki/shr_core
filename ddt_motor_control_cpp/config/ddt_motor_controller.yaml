@@ -3,13 +3,13 @@ ddt_motor_controller:
   ros__parameters:
     # シリアル通信設定（M15データシート準拠）
     serial_port: "/dev/ttyACM0"
-    baud_rate: 115200 # M15固定値：115200 bps
+    baud_rate: 57600 # M15固定値：115200 bps
 
     # 車輪パラメータ
     wheel_radius: 0.1 # 車輪の半径 [m]
     wheel_separation: 0.5 # 左右車輪間の距離 [m]
 
     # モーター設定（M15シリーズ仕様）
-    left_motor_id: 1 # 左モーターのID
-    right_motor_id: 2 # 右モーターのID
+    left_motor_id: 4 # 左モーターのID
+    right_motor_id: 5 # 右モーターのID
     max_motor_rpm: 330 # M15最大RPM：-330 ～ 330 rpm

@@ -10,14 +10,14 @@ namespace ddt_motor_control_cpp {
 
 DdtMotorControllerComponent::DdtMotorControllerComponent(const rclcpp::NodeOptions& options)
     : Node("ddt_motor_controller", options),
-      left_motor_id_(1),
-      right_motor_id_(2),
+      left_motor_id_(4),
+      right_motor_id_(5),
       max_motor_rpm_(330),     // M15データシートより：-330 ～ 330 rpm
       wheel_radius_(0.1),      // 車輪の半径 (m)
       wheel_separation_(0.5),  // 左右車輪間の距離 (m)
       serial_fd_(-1),
       serial_port_("/dev/ttyACM0"),
-      baud_rate_(115200),  // M15データシートより：115200 bps
+      baud_rate_(57600),  // M15データシートより：115200 bps
       left_motor_velocity_(0),
       right_motor_velocity_(0),
       left_motor_rotations_(0.0),
@@ -49,7 +49,7 @@ DdtMotorControllerComponent::DdtMotorControllerComponent(const rclcpp::NodeOptio
 
   // Twistメッセージのサブスクライバーを作成
   twist_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
-      "cmd_vel", 1,
+      "/target_twist", 10,
       std::bind(&DdtMotorControllerComponent::twistCallback, this, std::placeholders::_1));
   RCLCPP_INFO(this->get_logger(), "Twistメッセージのサブスクライバーを作成しました");
 
@@ -62,11 +62,11 @@ DdtMotorControllerComponent::DdtMotorControllerComponent(const rclcpp::NodeOptio
   watchdog_timer_ = this->create_wall_timer(
       500ms, std::bind(&DdtMotorControllerComponent::watchdogCallback, this));
 
-  status_timer_ =
-      this->create_wall_timer(1s, std::bind(&DdtMotorControllerComponent::logStatus, this));
+  // status_timer_ =
+  //     this->create_wall_timer(1s, std::bind(&DdtMotorControllerComponent::logStatus, this));
 
-  status_publish_timer_ = this->create_wall_timer(
-      100ms, std::bind(&DdtMotorControllerComponent::publishMotorStatus, this));
+  // status_publish_timer_ = this->create_wall_timer(
+  //     100ms, std::bind(&DdtMotorControllerComponent::publishMotorStatus, this));
 
   // M15モーターフィードバック取得タイマー（20ms =
   // 50Hz、データシートの最大500Hzより余裕を持った設定）
@@ -116,8 +116,14 @@ void DdtMotorControllerComponent::initializeSerial() {
       case 57600:
         speed = B57600;
         break;
+      case 96000:
+        speed = B9600;
+        break;
       case 115200:
         speed = B115200;
+        break;
+      case 230400:
+        speed = B230400;
         break;
       default:
         RCLCPP_WARN(this->get_logger(), "未対応のボーレート %d、115200を使用", baud_rate_);
@@ -269,7 +275,7 @@ void DdtMotorControllerComponent::twistCallback(const geometry_msgs::msg::Twist:
 
   auto [left_rpm, right_rpm] = twistToMotorVelocities(linear_x, angular_z);
 
-  RCLCPP_DEBUG(this->get_logger(),
+  RCLCPP_INFO(this->get_logger(),
                "Twist受信 - 線形: %.3f m/s, 角速度: %.3f rad/s -> 左: %.1f RPM, 右: %.1f RPM",
                linear_x, angular_z, left_rpm, right_rpm);
 
@@ -322,10 +328,10 @@ void DdtMotorControllerComponent::watchdogCallback() {
   auto current_time = std::chrono::steady_clock::now();
   auto time_diff = std::chrono::duration<double>(current_time - last_twist_time_).count();
 
-  if (time_diff > 0.5) {
-    stopMotors();
-    RCLCPP_WARN(this->get_logger(), "Twistメッセージのタイムアウト: モーターを停止しました");
-  }
+  // if (time_diff > 0.5) {
+  //   stopMotors();
+  //   RCLCPP_WARN(this->get_logger(), "Twistメッセージのタイムアウト: モーターを停止しました");
+  // }
 }
 
 bool DdtMotorControllerComponent::requestMotorFeedback(int motor_id) {
@@ -444,10 +450,10 @@ void DdtMotorControllerComponent::checkMotorHealth() {
 }
 
 void DdtMotorControllerComponent::logStatus() {
-  RCLCPP_INFO(this->get_logger(),
-              "モーター状態 - 左: %d RPM (%.2f 回転, %d℃), 右: %d RPM (%.2f 回転, %d℃)",
-              left_motor_velocity_, left_motor_rotations_, left_motor_feedback_.temperature,
-              right_motor_velocity_, right_motor_rotations_, right_motor_feedback_.temperature);
+  // RCLCPP_INFO(this->get_logger(),
+  //             "モーター状態 - 左: %d RPM (%.2f 回転, %d℃), 右: %d RPM (%.2f 回転, %d℃)",
+  //             left_motor_velocity_, left_motor_rotations_, left_motor_feedback_.temperature,
+  //             right_motor_velocity_, right_motor_rotations_, right_motor_feedback_.temperature);
 }
 
 }  // namespace ddt_motor_control_cpp

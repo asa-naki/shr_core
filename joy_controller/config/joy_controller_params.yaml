@@ -27,7 +27,7 @@ joy_controller:
     servo_increment_rate: 100.0 # Increment rate per joy message (position units per message)
 
     # Servo shot positions
-    servo_shot_position_1: 1500 # Position for servo shot button 1
+    servo_shot_position_1: 1800 # Position for servo shot button 1
     servo_shot_position_2: 2500 # Position for servo shot button 2
 
     # Debug settings

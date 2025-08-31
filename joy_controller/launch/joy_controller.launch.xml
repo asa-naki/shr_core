@@ -12,7 +12,7 @@ Joy Controller launch file
 
     <!-- Joy node (from joy package) -->
     <node pkg="joy" exec="joy_node" name="joy_node" output="screen">
-        <param name="dev" value="$(var joy_device)" />
+        <!-- <param name="dev" value="$(var joy_device)" /> -->
         <param name="deadzone" value="0.05" />
         <param name="autorepeat_rate" value="20.0" />
         <param name="use_sim_time" value="$(var use_sim_time)" />
