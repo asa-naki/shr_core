@@ -10,6 +10,7 @@
 #include <cstring>
 #include <iostream>
 #include <thread>
+#include <vector>
 
 namespace motor_control_lib {
 
@@ -106,6 +107,21 @@ bool FeetechServoController::connect() {
   return true;
 }
 
+int32_t FeetechServoController::getCurrentPosition(uint8_t servo_id) {
+  std::cout << "Reading current position for servo " << static_cast<int>(servo_id) << "..." << std::endl;
+  
+  // Read Present Position (register 132)
+  int32_t position = readRegister(servo_id, 132);
+  
+  if (position != -1) {
+    std::cout << "Position read successfully: " << position << std::endl;
+  } else {
+    std::cout << "Failed to read position" << std::endl;
+  }
+  
+  return position;
+}
+
 void FeetechServoController::disconnect() {
   if (serial_fd_ != -1) {
     close(serial_fd_);
@@ -157,6 +173,7 @@ bool FeetechServoController::verifyChecksum(const uint8_t* data, size_t length) 
 
   // データ部分（最後の2バイトを除く）
   size_t data_length = length - 2;
+  // Modbus-RTUではCRCはリトルエンディアン
   uint16_t received_crc = data[length - 2] | (data[length - 1] << 8);
   uint16_t calculated_crc = calculateCRC16(data, data_length);
 
@@ -171,6 +188,13 @@ int FeetechServoController::sendCommand(const uint8_t* cmd_bytes, size_t cmd_len
   }
 
   try {
+    // デバッグ: 送信コマンドを表示
+    std::cout << "Sending command: ";
+    for (size_t i = 0; i < cmd_length; i++) {
+      printf("%02X ", cmd_bytes[i]);
+    }
+    std::cout << std::endl;
+
     // バッファクリア
     tcflush(serial_fd_, TCIOFLUSH);
 
@@ -201,6 +225,13 @@ int FeetechServoController::sendCommand(const uint8_t* cmd_bytes, size_t cmd_len
     // 応答受信
     ssize_t bytes_read = read(serial_fd_, response, max_response_length);
     if (bytes_read > 0) {
+      // デバッグ: 受信レスポンスを表示
+      std::cout << "Received response (" << bytes_read << " bytes): ";
+      for (ssize_t i = 0; i < bytes_read; i++) {
+        printf("%02X ", response[i]);
+      }
+      std::cout << std::endl;
+
       // チェックサム検証
       if (verifyChecksum(response, bytes_read)) {
         return bytes_read;
@@ -209,6 +240,7 @@ int FeetechServoController::sendCommand(const uint8_t* cmd_bytes, size_t cmd_len
         return -1;
       }
     } else {
+      std::cerr << "No response received" << std::endl;
       return -1;
     }
 
@@ -229,14 +261,18 @@ int32_t FeetechServoController::readRegister(uint8_t servo_id, uint16_t address)
   uint8_t response[50];
   int response_length = sendCommand(cmd, cmd_length, response, sizeof(response));
 
-  if (response_length >= 5 && response[1] == 3) {
+  if (response_length >= 5 && response[1] == 3 && response[2] == 2) {
+    // Modbus読み取りレスポンス: [ID][03][バイト数][データH][データL][CRCL][CRCH]
     // レジスタ値を抽出（ビッグエンディアン）
     uint16_t value = (response[3] << 8) | response[4];
+    std::cout << "Read register " << address << " = " << value << " (0x" << std::hex << value << std::dec << ")" << std::endl;
     return static_cast<int32_t>(value);
   } else if (response_length > 0 && (response[1] & 0x80)) {
     // エラーレスポンス
+    std::cerr << "Error response: 0x" << std::hex << static_cast<int>(response[1]) << std::dec << std::endl;
     return -1;
   } else {
+    std::cerr << "Invalid response length: " << response_length << std::endl;
     return -1;
   }
 }
@@ -252,13 +288,20 @@ bool FeetechServoController::writeRegister(uint8_t servo_id, uint16_t address, u
   uint8_t response[50];
   int response_length = sendCommand(cmd, cmd_length, response, sizeof(response));
 
-  if (response_length >= 6) {
-    // エコーバック確認
+  if (response_length >= 6 && response[1] == 6) {
+    // Modbus書き込みレスポンス: エコーバック確認
     uint16_t echo_addr = (response[2] << 8) | response[3];
     uint16_t echo_value = (response[4] << 8) | response[5];
 
-    return (echo_addr == address && echo_value == value);
+    bool success = (echo_addr == address && echo_value == value);
+    std::cout << "Write register " << address << " = " << value << " -> " << (success ? "SUCCESS" : "FAILED") << std::endl;
+    return success;
+  } else if (response_length > 0 && (response[1] & 0x80)) {
+    // エラーレスポンス
+    std::cerr << "Write error response: 0x" << std::hex << static_cast<int>(response[1]) << std::dec << std::endl;
+    return false;
   } else {
+    std::cerr << "Invalid write response length: " << response_length << std::endl;
     return false;
   }
 }
@@ -266,36 +309,43 @@ bool FeetechServoController::writeRegister(uint8_t servo_id, uint16_t address, u
 bool FeetechServoController::setPosition(uint8_t servo_id, uint16_t position, bool enable_torque,
                                          double timeout) {
   if (!connected_) {
+    std::cerr << "Not connected to servo controller" << std::endl;
     return false;
   }
 
-  try {
-    // 1. トルク有効化（必要に応じて）
-    if (enable_torque) {
-      if (!writeRegister(servo_id, 129, 1)) {  // Torque Enable
-        return false;
-      }
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
+  std::cout << "Setting position for servo " << static_cast<int>(servo_id) << " to " << position << std::endl;
 
-    // 2. 位置コマンド送信
+  try {
+    // 位置コマンド送信（トルク有効化は省略）
+    std::cout << "Sending position command to servo " << static_cast<int>(servo_id) << " -> position: " << position << std::endl;
     if (!writeRegister(servo_id, 128, position)) {  // Goal Position
+      std::cerr << "Failed to set position for servo " << static_cast<int>(servo_id) << std::endl;
       return false;
     }
 
-    // 3. タイムアウト処理（将来の拡張用）
-    (void)timeout;  // 未使用パラメーター警告を回避
+    // 位置設定後の確認待機
+    std::cout << "Position command sent. Waiting 100ms..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
+    // 現在位置を読み取って確認
+    int32_t current_pos = getCurrentPosition(servo_id);
+    if (current_pos != -1) {
+      std::cout << "Current position after command: " << current_pos << std::endl;
+    } else {
+      std::cout << "Warning: Could not read current position" << std::endl;
+    }
+
+    // タイムアウト処理（将来の拡張用）
+    (void)timeout;  // 未使用パラメーター警告を回避
+    (void)enable_torque;  // 未使用パラメーター警告を回避
+
+    std::cout << "Position set successfully for servo " << static_cast<int>(servo_id) << std::endl;
     return true;
 
   } catch (const std::exception& e) {
     std::cerr << "setPosition error: " << e.what() << std::endl;
     return false;
   }
-}
-
-int32_t FeetechServoController::getCurrentPosition(uint8_t servo_id) {
-  return readRegister(servo_id, 256);  // Present Position
 }
 
 void FeetechServoController::initializeRegisterMap() {
