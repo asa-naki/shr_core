@@ -20,6 +20,7 @@ add_library(motor_control_lib SHARED
   src/ddt_motor_lib.cpp
   src/differential_drive.cpp
   src/motor_manager.cpp
+  src/servo_control.cpp
 )
 
 target_include_directories(motor_control_lib PUBLIC
@@ -35,13 +36,40 @@ ament_target_dependencies(motor_control_lib
   sensor_msgs
 )
 
+# Create servo control node executable
+add_executable(servo_control_node src/servo_control_node.cpp)
+target_link_libraries(servo_control_node motor_control_lib)
+ament_target_dependencies(servo_control_node
+  rclcpp
+  std_msgs
+  geometry_msgs
+  sensor_msgs
+)
+
+# Create servo test node executable
+add_executable(servo_test_node src/servo_test_node.cpp)
+ament_target_dependencies(servo_test_node
+  rclcpp
+  std_msgs
+  geometry_msgs
+)
+
 # Install headers
 install(DIRECTORY include/
   DESTINATION include
 )
 
+# Install config and launch files
+install(DIRECTORY config/
+  DESTINATION share/${PROJECT_NAME}/config
+)
+
+install(DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/launch
+)
+
 # Export the library
-install(TARGETS motor_control_lib
+install(TARGETS motor_control_lib servo_control_node servo_test_node
   EXPORT motor_control_libTargets
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
