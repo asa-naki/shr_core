@@ -2,15 +2,15 @@ drive_component:
   ros__parameters:
     # シリアル通信設定
     serial_port: "/dev/ttyACM0"
-    baud_rate: 115200
+    baud_rate: 57600
 
     # ロボット物理パラメータ
     wheel_radius: 0.1 # ホイール半径 [m]
     wheel_separation: 0.5 # ホイール間隔 [m]
 
     # モータ設定
-    left_motor_id: 1 # 左モータID
-    right_motor_id: 2 # 右モータID
+    left_motor_id: 4 # 左モータID
+    right_motor_id: 5 # 右モータID
     max_motor_rpm: 1000 # 最大RPM
 
     # パブリッシュ設定

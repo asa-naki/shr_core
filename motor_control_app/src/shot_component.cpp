@@ -54,11 +54,12 @@ ShotComponent::ShotComponent(const rclcpp::NodeOptions& options)
   // パブリッシャー作成
   current_aim_publisher_ = this->create_publisher<geometry_msgs::msg::Point>("current_aim", 1);
 
-  // 現在位置を定期的に公開
-  timer_ = this->create_wall_timer(std::chrono::milliseconds(100),
-                                   std::bind(&ShotComponent::publishCurrentAim, this));
+  // 現在位置を定期的に公開（一時的に無効化）
+  // timer_ = this->create_wall_timer(std::chrono::milliseconds(100),
+  //                                  std::bind(&ShotComponent::publishCurrentAim, this));
 
   // 最初にホーム位置に移動
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));  // 初期化待機
   if (!servo_controller_->setPosition(trigger_servo_id_, home_position_, false)) {
     RCLCPP_WARN(this->get_logger(), "Failed to move to initial home position");
   }
@@ -107,7 +108,7 @@ void ShotComponent::executeShotSequence() {
     // 射撃持続時間待機
     std::this_thread::sleep_for(std::chrono::milliseconds(fire_duration_ms_));
 
-    // 2. ホーム位置に戻る
+    // 2. すべてのサーボをホーム位置に戻る
     if (servo_controller_->setPosition(trigger_servo_id_, home_position_, false)) {
       RCLCPP_INFO(this->get_logger(), "Returned to home position (%d)", home_position_);
     } else {

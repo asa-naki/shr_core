@@ -22,7 +22,7 @@ DriveComponent::DriveComponent(const rclcpp::NodeOptions& options)
 
   // ROS 2 通信の設定
   twist_subscription_ = this->create_subscription<geometry_msgs::msg::Twist>(
-      "cmd_vel", 10, std::bind(&DriveComponent::twistCallback, this, std::placeholders::_1));
+      "/target_twist", 10, std::bind(&DriveComponent::twistCallback, this, std::placeholders::_1));
 
   status_publisher_ = this->create_publisher<std_msgs::msg::String>("motor_status", 10);
 
