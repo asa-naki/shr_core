@@ -11,6 +11,9 @@ DriveComponent::DriveComponent(const rclcpp::NodeOptions& options)
     : Node("drive_component", options), motor_initialized_(false), emergency_stop_active_(false) {
   RCLCPP_INFO(this->get_logger(), "Initializing Drive Component");
 
+  // 最初の時刻を設定（コマンドタイムアウトの初期化）
+  last_cmd_time_ = this->get_clock()->now();
+
   // パラメータを初期化
   initializeParameters();
 
@@ -22,7 +25,7 @@ DriveComponent::DriveComponent(const rclcpp::NodeOptions& options)
 
   // ROS 2 通信の設定
   twist_subscription_ = this->create_subscription<geometry_msgs::msg::Twist>(
-      "cmd_vel", 10, std::bind(&DriveComponent::twistCallback, this, std::placeholders::_1));
+      "target_twist", 1, std::bind(&DriveComponent::twistCallback, this, std::placeholders::_1));
 
   status_publisher_ = this->create_publisher<std_msgs::msg::String>("motor_status", 10);
 
@@ -31,6 +34,10 @@ DriveComponent::DriveComponent(const rclcpp::NodeOptions& options)
   status_timer_ =
       this->create_wall_timer(std::chrono::duration_cast<std::chrono::milliseconds>(timer_period),
                               std::bind(&DriveComponent::statusTimerCallback, this));
+
+  // コマンドタイムアウトタイマー（100msごとにチェック）
+  timeout_timer_ = this->create_wall_timer(
+      100ms, std::bind(&DriveComponent::timeoutTimerCallback, this));
 
   RCLCPP_INFO(this->get_logger(), "Drive Component initialized successfully");
 }
@@ -56,6 +63,7 @@ void DriveComponent::initializeParameters() {
   this->declare_parameter("right_motor_id", 2);
   this->declare_parameter("max_motor_rpm", 1000);
   this->declare_parameter("status_publish_rate", 10.0);
+  this->declare_parameter("cmd_timeout_sec", 0.5);  // コマンドタイムアウト時間（秒）
 
   // パラメータを取得
   serial_port_ = this->get_parameter("serial_port").as_string();
@@ -66,6 +74,7 @@ void DriveComponent::initializeParameters() {
   right_motor_id_ = this->get_parameter("right_motor_id").as_int();
   max_motor_rpm_ = this->get_parameter("max_motor_rpm").as_int();
   status_publish_rate_ = this->get_parameter("status_publish_rate").as_double();
+  cmd_timeout_sec_ = this->get_parameter("cmd_timeout_sec").as_double();
 
   RCLCPP_INFO(this->get_logger(), "Parameters initialized:");
   RCLCPP_INFO(this->get_logger(), "  serial_port: %s", serial_port_.c_str());
@@ -76,6 +85,7 @@ void DriveComponent::initializeParameters() {
   RCLCPP_INFO(this->get_logger(), "  right_motor_id: %d", right_motor_id_);
   RCLCPP_INFO(this->get_logger(), "  max_motor_rpm: %d", max_motor_rpm_);
   RCLCPP_INFO(this->get_logger(), "  status_publish_rate: %.1f", status_publish_rate_);
+  RCLCPP_INFO(this->get_logger(), "  cmd_timeout_sec: %.1f", cmd_timeout_sec_);
 }
 
 bool DriveComponent::initializeMotorLib() {
@@ -128,6 +138,9 @@ void DriveComponent::twistCallback(const geometry_msgs::msg::Twist::SharedPtr ms
                          "Motor not healthy, ignoring twist command");
     return;
   }
+
+  // 最後のコマンド時刻を更新
+  last_cmd_time_ = this->get_clock()->now();
 
   // 速度指令をモータライブラリに送信
   if (!diff_drive_->setVelocity(msg->linear.x, msg->angular.z)) {
@@ -197,6 +210,31 @@ void DriveComponent::statusTimerCallback() {
   } catch (const std::exception& e) {
     RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
                           "Exception in status timer callback: %s", e.what());
+  }
+}
+
+void DriveComponent::timeoutTimerCallback() {
+  if (!motor_initialized_ || emergency_stop_active_ || !diff_drive_) {
+    return;
+  }
+
+  // 最後のコマンドからの経過時間を計算
+  auto current_time = this->get_clock()->now();
+  auto time_since_last_cmd = (current_time - last_cmd_time_).seconds();
+
+  // タイムアウトチェック
+  if (time_since_last_cmd > cmd_timeout_sec_) {
+    // タイムアウト時は速度を0にする
+    if (!diff_drive_->setVelocity(0.0, 0.0)) {
+      RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
+                            "Failed to stop motors on timeout");
+    } else {
+      RCLCPP_DEBUG_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
+                           "Motors stopped due to command timeout (%.2f sec)", time_since_last_cmd);
+    }
+    
+    // 次回のタイムアウトを防ぐため、最後のコマンド時刻を更新
+    last_cmd_time_ = current_time;
   }
 }
 

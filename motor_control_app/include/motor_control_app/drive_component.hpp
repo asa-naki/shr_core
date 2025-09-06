@@ -45,6 +45,11 @@ private:
   void statusTimerCallback();
 
   /**
+   * @brief コマンドタイムアウトをチェックするタイマーコールバック
+   */
+  void timeoutTimerCallback();
+
+  /**
    * @brief パラメータを初期化
    */
   void initializeParameters();
@@ -77,6 +82,11 @@ private:
   // 状態フラグ
   bool motor_initialized_;
   bool emergency_stop_active_;
+
+  // コマンドタイムアウト関連
+  rclcpp::Time last_cmd_time_;
+  double cmd_timeout_sec_;
+  rclcpp::TimerBase::SharedPtr timeout_timer_;
 };
 
 }  // namespace motor_control_app

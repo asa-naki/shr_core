@@ -31,18 +31,18 @@ def generate_launch_description():
         description='Fire button number'
     )
     
-    # joyノード
-    joy_node = Node(
-        package='joy',
-        executable='joy_node',
-        name='joy_node',
-        parameters=[{
-            'device': LaunchConfiguration('device'),
-            'deadzone': 0.05,
-            'autorepeat_rate': 20.0
-        }],
-        output='screen'
-    )
+    # # joyノード
+    # joy_node = Node(
+    #     package='joy',
+    #     executable='joy_node',
+    #     name='joy_node',
+    #     parameters=[{
+    #         'device': LaunchConfiguration('device'),
+    #         'deadzone': 0.05,
+    #         'autorepeat_rate': 20.0
+    #     }],
+    #     output='screen'
+    # )
     
     # shot componentノード
     shot_component_node = Node(
@@ -63,6 +63,6 @@ def generate_launch_description():
         port_arg,
         device_arg,
         fire_button_arg,
-        joy_node,
+        #joy_node,
         shot_component_node
     ])

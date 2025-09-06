@@ -16,19 +16,19 @@ def generate_launch_description():
     
     baud_rate_arg = DeclareLaunchArgument(
         'baud_rate',
-        default_value='115200',
+        default_value='57600',
         description='シリアル通信のボーレート'
     )
     
     motor1_id_arg = DeclareLaunchArgument(
         'motor1_id',
-        default_value='1',
+        default_value='4',
         description='モーター1のID'
     )
     
     motor2_id_arg = DeclareLaunchArgument(
         'motor2_id',
-        default_value='2',
+        default_value='5',
         description='モーター2のID'
     )
     
