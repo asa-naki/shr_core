@@ -33,12 +33,18 @@ private:
   int pan_servo_id_;
   int trigger_servo_id_;
   int fire_button_;
+  int pan_up_button_;
+  int pan_down_button_;
+  int pan_step_;
   int fire_position_;
   int home_position_;
   int fire_duration_ms_;
 
   bool is_shooting_;
   bool last_button_state_;
+  bool last_pan_up_state_;
+  bool last_pan_down_state_;
+  int current_pan_position_;
 
   rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_subscription_;
   rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr aim_subscription_;

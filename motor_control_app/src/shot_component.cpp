@@ -6,13 +6,21 @@
 namespace motor_control_app {
 
 ShotComponent::ShotComponent(const rclcpp::NodeOptions& options)
-    : Node("shot_component", options), is_shooting_(false), last_button_state_(false) {
+    : Node("shot_component", options),
+      is_shooting_(false),
+      last_button_state_(false),
+      last_pan_up_state_(false),
+      last_pan_down_state_(false),
+      current_pan_position_(2048) {
   // パラメーター宣言
   this->declare_parameter("port", "/dev/ttyUSB0");
   this->declare_parameter("baudrate", 115200);
   this->declare_parameter("pan_servo_id", 1);
   this->declare_parameter("trigger_servo_id", 3);
   this->declare_parameter("fire_button", 0);         // 射撃ボタン（Aボタンなど）
+  this->declare_parameter("pan_up_button", 4);       // パン上ボタン（十字キー上など）
+  this->declare_parameter("pan_down_button", 6);     // パン下ボタン（十字キー下など）
+  this->declare_parameter("pan_step", 50);           // パンステップサイズ
   this->declare_parameter("fire_position", 1500);    // 射撃位置
   this->declare_parameter("home_position", 2048);    // ホーム位置
   this->declare_parameter("fire_duration_ms", 300);  // 射撃持続時間（ミリ秒）
@@ -23,6 +31,9 @@ ShotComponent::ShotComponent(const rclcpp::NodeOptions& options)
   pan_servo_id_ = this->get_parameter("pan_servo_id").as_int();
   trigger_servo_id_ = this->get_parameter("trigger_servo_id").as_int();
   fire_button_ = this->get_parameter("fire_button").as_int();
+  pan_up_button_ = this->get_parameter("pan_up_button").as_int();
+  pan_down_button_ = this->get_parameter("pan_down_button").as_int();
+  pan_step_ = this->get_parameter("pan_step").as_int();
   fire_position_ = this->get_parameter("fire_position").as_int();
   home_position_ = this->get_parameter("home_position").as_int();
   fire_duration_ms_ = this->get_parameter("fire_duration_ms").as_int();
@@ -64,9 +75,19 @@ ShotComponent::ShotComponent(const rclcpp::NodeOptions& options)
     RCLCPP_WARN(this->get_logger(), "Failed to move to initial home position");
   }
 
+  // 現在のパン位置を取得して初期化
+  int32_t current_pos = servo_controller_->getCurrentPosition(pan_servo_id_);
+  if (current_pos != -1) {
+    current_pan_position_ = current_pos;
+  } else {
+    RCLCPP_WARN(this->get_logger(), "Failed to get current pan position, using default");
+  }
+
   RCLCPP_INFO(this->get_logger(), "Shot component started");
-  RCLCPP_INFO(this->get_logger(), "Fire button: %d, Fire position: %d, Home position: %d",
-              fire_button_, fire_position_, home_position_);
+  RCLCPP_INFO(this->get_logger(), "Fire button: %d, Pan up: %d, Pan down: %d, Pan step: %d",
+              fire_button_, pan_up_button_, pan_down_button_, pan_step_);
+  RCLCPP_INFO(this->get_logger(), "Fire position: %d, Home position: %d, Current pan: %d",
+              fire_position_, home_position_, current_pan_position_);
 }
 
 ShotComponent::~ShotComponent() {
@@ -76,12 +97,12 @@ ShotComponent::~ShotComponent() {
 }
 
 void ShotComponent::joyCallback(const sensor_msgs::msg::Joy::SharedPtr msg) {
-  if (!msg || msg->buttons.empty() || is_shooting_) {
+  if (!msg || msg->buttons.empty()) {
     return;
   }
 
-  // 指定されたボタンの状態をチェック
-  if (fire_button_ >= 0 && fire_button_ < static_cast<int>(msg->buttons.size())) {
+  // 射撃ボタンの処理
+  if (!is_shooting_ && fire_button_ >= 0 && fire_button_ < static_cast<int>(msg->buttons.size())) {
     bool current_button_state = msg->buttons[fire_button_] == 1;
 
     // ボタンが押された瞬間を検出（立ち上がりエッジ）
@@ -90,6 +111,40 @@ void ShotComponent::joyCallback(const sensor_msgs::msg::Joy::SharedPtr msg) {
     }
 
     last_button_state_ = current_button_state;
+  }
+
+  // パン上ボタンの処理
+  if (pan_up_button_ >= 0 && pan_up_button_ < static_cast<int>(msg->buttons.size())) {
+    bool current_pan_up_state = msg->buttons[pan_up_button_] == 1;
+
+    // ボタンが押された瞬間を検出（立ち上がりエッジ）
+    if (current_pan_up_state && !last_pan_up_state_) {
+      current_pan_position_ = std::min(4095, current_pan_position_ + pan_step_);
+      if (servo_controller_->setPosition(pan_servo_id_, current_pan_position_, false)) {
+        RCLCPP_INFO(this->get_logger(), "Pan up: position=%d", current_pan_position_);
+      } else {
+        RCLCPP_ERROR(this->get_logger(), "Failed to move pan up");
+      }
+    }
+
+    last_pan_up_state_ = current_pan_up_state;
+  }
+
+  // パン下ボタンの処理
+  if (pan_down_button_ >= 0 && pan_down_button_ < static_cast<int>(msg->buttons.size())) {
+    bool current_pan_down_state = msg->buttons[pan_down_button_] == 1;
+
+    // ボタンが押された瞬間を検出（立ち上がりエッジ）
+    if (current_pan_down_state && !last_pan_down_state_) {
+      current_pan_position_ = std::max(0, current_pan_position_ - pan_step_);
+      if (servo_controller_->setPosition(pan_servo_id_, current_pan_position_, false)) {
+        RCLCPP_INFO(this->get_logger(), "Pan down: position=%d", current_pan_position_);
+      } else {
+        RCLCPP_ERROR(this->get_logger(), "Failed to move pan down");
+      }
+    }
+
+    last_pan_down_state_ = current_pan_down_state;
   }
 }
 
@@ -127,6 +182,7 @@ void ShotComponent::aimCallback(const geometry_msgs::msg::Point::SharedPtr msg) 
   uint16_t pan_position = static_cast<uint16_t>(std::max(0.0, std::min(4095.0, msg->x)));
 
   if (servo_controller_->setPosition(pan_servo_id_, pan_position, false)) {
+    current_pan_position_ = pan_position;  // 内部状態も更新
     RCLCPP_INFO(this->get_logger(), "Aiming at pan=%d", pan_position);
   } else {
     RCLCPP_ERROR(this->get_logger(), "Failed to aim at target position");
@@ -151,14 +207,11 @@ void ShotComponent::homeCallback(const std_msgs::msg::Bool::SharedPtr msg) {
 }
 
 void ShotComponent::publishCurrentAim() {
-  int32_t pan_position = servo_controller_->getCurrentPosition(pan_servo_id_);
-  if (pan_position != -1) {
-    auto msg = std::make_unique<geometry_msgs::msg::Point>();
-    msg->x = static_cast<double>(pan_position);
-    msg->y = 0.0;  // tilt機構なし
-    msg->z = 0.0;
-    current_aim_publisher_->publish(std::move(msg));
-  }
+  auto msg = std::make_unique<geometry_msgs::msg::Point>();
+  msg->x = static_cast<double>(current_pan_position_);
+  msg->y = 0.0;  // tilt機構なし
+  msg->z = 0.0;
+  current_aim_publisher_->publish(std::move(msg));
 }
 
 }  // namespace motor_control_app
