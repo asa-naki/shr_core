@@ -9,8 +9,8 @@ ShotComponent::ShotComponent(const rclcpp::NodeOptions& options)
     : Node("shot_component", options),
       is_shooting_(false),
       last_button_state_(false),
-      last_pan_up_state_(false),
-      last_pan_down_state_(false),
+      last_pan_up_value_(0.0),
+      last_pan_down_value_(0.0),
       current_pan_position_(2048) {
   // パラメーター宣言
   this->declare_parameter("port", "/dev/ttyUSB0");
@@ -18,8 +18,8 @@ ShotComponent::ShotComponent(const rclcpp::NodeOptions& options)
   this->declare_parameter("pan_servo_id", 1);
   this->declare_parameter("trigger_servo_id", 3);
   this->declare_parameter("fire_button", 0);         // 射撃ボタン（Aボタンなど）
-  this->declare_parameter("pan_up_button", 4);       // パン上ボタン（十字キー上など）
-  this->declare_parameter("pan_down_button", 6);     // パン下ボタン（十字キー下など）
+  this->declare_parameter("pan_up_axis", 6);         // パン上軸（十字キー上など）
+  this->declare_parameter("pan_down_axis", 7);       // パン下軸（十字キー下など）
   this->declare_parameter("pan_step", 50);           // パンステップサイズ
   this->declare_parameter("fire_position", 1500);    // 射撃位置
   this->declare_parameter("home_position", 2048);    // ホーム位置
@@ -31,8 +31,8 @@ ShotComponent::ShotComponent(const rclcpp::NodeOptions& options)
   pan_servo_id_ = this->get_parameter("pan_servo_id").as_int();
   trigger_servo_id_ = this->get_parameter("trigger_servo_id").as_int();
   fire_button_ = this->get_parameter("fire_button").as_int();
-  pan_up_button_ = this->get_parameter("pan_up_button").as_int();
-  pan_down_button_ = this->get_parameter("pan_down_button").as_int();
+  pan_up_axis_ = this->get_parameter("pan_up_axis").as_int();
+  pan_down_axis_ = this->get_parameter("pan_down_axis").as_int();
   pan_step_ = this->get_parameter("pan_step").as_int();
   fire_position_ = this->get_parameter("fire_position").as_int();
   home_position_ = this->get_parameter("home_position").as_int();
@@ -84,8 +84,9 @@ ShotComponent::ShotComponent(const rclcpp::NodeOptions& options)
   }
 
   RCLCPP_INFO(this->get_logger(), "Shot component started");
-  RCLCPP_INFO(this->get_logger(), "Fire button: %d, Pan up: %d, Pan down: %d, Pan step: %d",
-              fire_button_, pan_up_button_, pan_down_button_, pan_step_);
+  RCLCPP_INFO(this->get_logger(),
+              "Fire button: %d, Pan up axis: %d, Pan down axis: %d, Pan step: %d", fire_button_,
+              pan_up_axis_, pan_down_axis_, pan_step_);
   RCLCPP_INFO(this->get_logger(), "Fire position: %d, Home position: %d, Current pan: %d",
               fire_position_, home_position_, current_pan_position_);
 }
@@ -113,12 +114,17 @@ void ShotComponent::joyCallback(const sensor_msgs::msg::Joy::SharedPtr msg) {
     last_button_state_ = current_button_state;
   }
 
-  // パン上ボタンの処理
-  if (pan_up_button_ >= 0 && pan_up_button_ < static_cast<int>(msg->buttons.size())) {
-    bool current_pan_up_state = msg->buttons[pan_up_button_] == 1;
+  // axesが存在するかチェック
+  if (msg->axes.empty()) {
+    return;
+  }
 
-    // ボタンが押された瞬間を検出（立ち上がりエッジ）
-    if (current_pan_up_state && !last_pan_up_state_) {
+  // パン上軸の処理
+  if (pan_up_axis_ >= 0 && pan_up_axis_ < static_cast<int>(msg->axes.size())) {
+    float current_pan_up_value = msg->axes[pan_up_axis_];
+
+    // 軸の値が1.0になった瞬間を検出（立ち上がりエッジ）
+    if (current_pan_up_value > 0.5 && last_pan_up_value_ <= 0.5) {
       current_pan_position_ = std::min(4095, current_pan_position_ + pan_step_);
       if (servo_controller_->setPosition(pan_servo_id_, current_pan_position_, false)) {
         RCLCPP_INFO(this->get_logger(), "Pan up: position=%d", current_pan_position_);
@@ -127,15 +133,15 @@ void ShotComponent::joyCallback(const sensor_msgs::msg::Joy::SharedPtr msg) {
       }
     }
 
-    last_pan_up_state_ = current_pan_up_state;
+    last_pan_up_value_ = current_pan_up_value;
   }
 
-  // パン下ボタンの処理
-  if (pan_down_button_ >= 0 && pan_down_button_ < static_cast<int>(msg->buttons.size())) {
-    bool current_pan_down_state = msg->buttons[pan_down_button_] == 1;
+  // パン下軸の処理
+  if (pan_down_axis_ >= 0 && pan_down_axis_ < static_cast<int>(msg->axes.size())) {
+    float current_pan_down_value = msg->axes[pan_down_axis_];
 
-    // ボタンが押された瞬間を検出（立ち上がりエッジ）
-    if (current_pan_down_state && !last_pan_down_state_) {
+    // 軸の値が1.0になった瞬間を検出（立ち上がりエッジ）
+    if (current_pan_down_value > 0.5 && last_pan_down_value_ <= 0.5) {
       current_pan_position_ = std::max(0, current_pan_position_ - pan_step_);
       if (servo_controller_->setPosition(pan_servo_id_, current_pan_position_, false)) {
         RCLCPP_INFO(this->get_logger(), "Pan down: position=%d", current_pan_position_);
@@ -144,7 +150,7 @@ void ShotComponent::joyCallback(const sensor_msgs::msg::Joy::SharedPtr msg) {
       }
     }
 
-    last_pan_down_state_ = current_pan_down_state;
+    last_pan_down_value_ = current_pan_down_value;
   }
 }
 
