@@ -17,8 +17,8 @@ ShotComponent::ShotComponent(const rclcpp::NodeOptions& options)
   this->declare_parameter("pan_servo_id", 1);
   this->declare_parameter("trigger_servo_id", 3);
   this->declare_parameter("fire_button", 0);         // 射撃ボタン（Aボタンなど）
-  this->declare_parameter("pan_axis", 6);            // パン軸（十字キー上下など）
-  this->declare_parameter("pan_step", 50);           // パンステップサイズ
+  this->declare_parameter("pan_axis", 7);            // パン軸（十字キー上下など）
+  this->declare_parameter("pan_step", 100);          // パンステップサイズ
   this->declare_parameter("fire_position", 1500);    // 射撃位置
   this->declare_parameter("home_position", 2048);    // ホーム位置
   this->declare_parameter("fire_duration_ms", 300);  // 射撃持続時間（ミリ秒）
@@ -81,8 +81,7 @@ ShotComponent::ShotComponent(const rclcpp::NodeOptions& options)
   }
 
   RCLCPP_INFO(this->get_logger(), "Shot component started");
-  RCLCPP_INFO(this->get_logger(),
-              "Fire button: %d, Pan axis: %d, Pan step: %d", fire_button_,
+  RCLCPP_INFO(this->get_logger(), "Fire button: %d, Pan axis: %d, Pan step: %d", fire_button_,
               pan_axis_, pan_step_);
   RCLCPP_INFO(this->get_logger(), "Fire position: %d, Home position: %d, Current pan: %d",
               fire_position_, home_position_, current_pan_position_);
