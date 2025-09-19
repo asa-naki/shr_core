@@ -27,6 +27,11 @@ private:
   void publishCurrentAim();
   void executeShotSequence();
 
+  // 角度変換関数
+  double clampAngle(double angle_deg);
+  int angleToServoPosition(double angle_deg);
+  double servoPositionToAngle(int position);
+
   std::shared_ptr<motor_control_lib::FeetechServoController> servo_controller_;
   std::unique_ptr<motor_control_lib::ShotController> shot_controller_;
 
@@ -34,15 +39,18 @@ private:
   int trigger_servo_id_;
   int fire_button_;
   int pan_axis_;
-  int pan_step_;
-  int fire_position_;
-  int home_position_;
+  double pan_step_angle_;
+  double pan_min_angle_;
+  double pan_max_angle_;
+  double fire_angle_;
+  double home_angle_;
   int fire_duration_ms_;
 
   bool is_shooting_;
   bool last_button_state_;
   float last_pan_value_;
   int current_pan_position_;
+  double current_pan_angle_;
 
   rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_subscription_;
   rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr aim_subscription_;
