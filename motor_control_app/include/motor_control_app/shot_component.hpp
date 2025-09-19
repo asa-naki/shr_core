@@ -29,6 +29,7 @@ private:
 
   // 角度変換関数
   double clampAngle(double angle_deg);
+  bool canSendCommand();
   int angleToServoPosition(double angle_deg);
   double servoPositionToAngle(int position);
 
@@ -45,12 +46,14 @@ private:
   double fire_angle_;
   double home_angle_;
   int fire_duration_ms_;
+  int command_rate_limit_ms_;
 
   bool is_shooting_;
   bool last_button_state_;
   float last_pan_value_;
   int current_pan_position_;
   double current_pan_angle_;
+  rclcpp::Time last_command_time_;
 
   rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_subscription_;
   rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr aim_subscription_;

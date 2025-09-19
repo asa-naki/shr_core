@@ -199,12 +199,14 @@ int FeetechServoController::sendCommand(const uint8_t* cmd_bytes, size_t cmd_len
   }
 
   try {
-    // デバッグ: 送信コマンドを表示
-    std::cout << "Sending command: ";
-    for (size_t i = 0; i < cmd_length; i++) {
-      printf("%02X ", cmd_bytes[i]);
+    // デバッグ: 送信コマンドを表示（高速コマンド時は出力を削減）
+    if (cmd_bytes[1] != 6) {  // 書き込みコマンド以外のみ表示
+      std::cout << "Sending command: ";
+      for (size_t i = 0; i < cmd_length; i++) {
+        printf("%02X ", cmd_bytes[i]);
+      }
+      std::cout << std::endl;
     }
-    std::cout << std::endl;
 
     // バッファクリア
     tcflush(serial_fd_, TCIOFLUSH);
@@ -213,8 +215,8 @@ int FeetechServoController::sendCommand(const uint8_t* cmd_bytes, size_t cmd_len
     int rts = TIOCM_RTS;
     ioctl(serial_fd_, TIOCMBIS, &rts);  // RTS有効
 
-    // RTS制御後の短い待機
-    std::this_thread::sleep_for(std::chrono::microseconds(100));
+    // RTS制御後の短い待機（通信安定化）
+    std::this_thread::sleep_for(std::chrono::microseconds(500));
 
     // コマンド送信
     ssize_t bytes_written = write(serial_fd_, cmd_bytes, cmd_length);
@@ -227,8 +229,8 @@ int FeetechServoController::sendCommand(const uint8_t* cmd_bytes, size_t cmd_len
     // 送信完了待機
     tcdrain(serial_fd_);
 
-    // 送信後の待機時間を追加
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    // 送信後の待機時間を延長（高速コマンドに対応）
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
 
     // RS485受信制御
     ioctl(serial_fd_, TIOCMBIC, &rts);  // RTS無効
@@ -237,13 +239,13 @@ int FeetechServoController::sendCommand(const uint8_t* cmd_bytes, size_t cmd_len
       return 0;
     }
 
-    // 応答受信待機
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    // 応答受信待機（高速コマンドに対応して待機時間を調整）
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
     // 応答受信（ブロッキング読み取りに変更）
     ssize_t bytes_read = 0;
     int retry_count = 0;
-    const int max_retries = 5;
+    const int max_retries = 3;  // リトライ回数を削減
 
     while (retry_count < max_retries && bytes_read <= 0) {
       // タイムアウト付きブロッキング読み取り
@@ -251,8 +253,8 @@ int FeetechServoController::sendCommand(const uint8_t* cmd_bytes, size_t cmd_len
       struct timeval timeout_val;
       FD_ZERO(&read_fds);
       FD_SET(serial_fd_, &read_fds);
-      timeout_val.tv_sec = 1;
-      timeout_val.tv_usec = 0;
+      timeout_val.tv_sec = 0;
+      timeout_val.tv_usec = 500000;  // 500ms（高速コマンド対応でタイムアウトを短縮）
 
       int select_result = select(serial_fd_ + 1, &read_fds, NULL, NULL, &timeout_val);
       if (select_result > 0 && FD_ISSET(serial_fd_, &read_fds)) {
@@ -266,17 +268,19 @@ int FeetechServoController::sendCommand(const uint8_t* cmd_bytes, size_t cmd_len
       if (bytes_read <= 0) {
         retry_count++;
         if (retry_count < max_retries) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(50));
+          std::this_thread::sleep_for(std::chrono::milliseconds(20));  // リトライ間隔を短縮
         }
       }
     }
     if (bytes_read > 0) {
-      // デバッグ: 受信レスポンスを表示
-      std::cout << "Received response (" << bytes_read << " bytes): ";
-      for (ssize_t i = 0; i < bytes_read; i++) {
-        printf("%02X ", response[i]);
+      // デバッグ: 受信レスポンスを表示（読み取りコマンドのみ）
+      if (cmd_bytes[1] == 3) {  // 読み取りコマンドのみ表示
+        std::cout << "Received response (" << bytes_read << " bytes): ";
+        for (ssize_t i = 0; i < bytes_read; i++) {
+          printf("%02X ", response[i]);
+        }
+        std::cout << std::endl;
       }
-      std::cout << std::endl;
 
       // チェックサム検証
       if (verifyChecksum(response, bytes_read)) {
@@ -371,31 +375,15 @@ bool FeetechServoController::setPosition(uint8_t servo_id, uint16_t position, bo
             << std::endl;
 
   try {
-    // 位置コマンド送信（トルク有効化は省略）
-    std::cout << "Sending position command to servo " << static_cast<int>(servo_id)
-              << " -> position: " << position << std::endl;
+    // 位置コマンド送信（応答確認を簡素化）
     if (!writeRegister(servo_id, 128, position)) {  // Goal Position
       std::cerr << "Failed to set position for servo " << static_cast<int>(servo_id) << std::endl;
       return false;
     }
 
-    // 位置設定後の確認待機
-    std::cout << "Position command sent. Waiting 100ms..." << std::endl;
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-    // 現在位置を読み取って確認
-    int32_t current_pos = getCurrentPosition(servo_id);
-    if (current_pos != -1) {
-      std::cout << "Current position after command: " << current_pos << std::endl;
-    } else {
-      std::cout << "Warning: Could not read current position" << std::endl;
-    }
-
-    // タイムアウト処理（将来の拡張用）
-    (void)timeout;        // 未使用パラメーター警告を回避
-    (void)enable_torque;  // 未使用パラメーター警告を回避
-
-    std::cout << "Position set successfully for servo " << static_cast<int>(servo_id) << std::endl;
+    // 高速コマンド対応：位置確認は省略して迅速に処理
+    std::cout << "Position set successfully for servo " << static_cast<int>(servo_id) << " to "
+              << position << std::endl;
     return true;
 
   } catch (const std::exception& e) {
