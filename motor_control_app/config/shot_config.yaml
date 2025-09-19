@@ -1,0 +1,11 @@
+shot_component:
+  ros__parameters:
+    port: "/dev/ttyUSB0"
+    baudrate: 115200
+    pan_servo_id: 11
+    trigger_servo_id: 10
+    fire_button: 0 # Aボタン（通常0番）
+    fire_position: 1500 # 射撃位置（押出位置）
+    home_position: 2800 # ホーム位置（ニュートラル）
+    fire_duration_ms: 300 # 射撃持続時間（ミリ秒）
+    pan_axis: 7

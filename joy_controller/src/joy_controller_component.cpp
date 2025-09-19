@@ -21,8 +21,7 @@
 namespace joy_controller {
 
 JoyControllerComponent::JoyControllerComponent(const rclcpp::NodeOptions &options)
-    : Node("joy_controller", options),
-      message_count_(0) {  // servo position will be initialized after loading parameters
+    : Node("joy_controller", options), message_count_(0) {
   // Set up parameter callback
   param_handler_ptr_ = this->add_on_set_parameters_callback(
       std::bind(&JoyControllerComponent::paramCallback, this, std::placeholders::_1));
@@ -30,32 +29,13 @@ JoyControllerComponent::JoyControllerComponent(const rclcpp::NodeOptions &option
   // Load parameters
   loadParameters();
 
-  // Initialize servo pitch to center position and publish initial servo shot position
-  current_servo_position_ = servo_center_position_;
-
   // Initialize ROS2 interfaces
   joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
       "/joy", 10, std::bind(&JoyControllerComponent::joyCallback, this, std::placeholders::_1));
 
   twist_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("/target_twist", 1);
-  servo_position_pub_ =
-      this->create_publisher<std_msgs::msg::Int32>("/servo_pitch/position_command", 1);
-  servo_shot_pub_ = this->create_publisher<std_msgs::msg::Int32>("/servo_shot/position_command", 1);
-
-  // Publish initial positions
-  auto servo_pitch_msg = std_msgs::msg::Int32();
-  servo_pitch_msg.data = current_servo_position_;
-  servo_position_pub_->publish(servo_pitch_msg);
-
-  auto servo_shot_msg = std_msgs::msg::Int32();
-  servo_shot_msg.data = servo_shot_position_2_;
-  servo_shot_pub_->publish(servo_shot_msg);
 
   RCLCPP_INFO(this->get_logger(), "Joy Controller Component initialized");
-  RCLCPP_INFO(this->get_logger(), "Servo pitch initialized to center position: %d",
-              current_servo_position_);
-  RCLCPP_INFO(this->get_logger(), "Servo shot initialized to position 2: %d",
-              servo_shot_position_2_);
   if (debug_mode_) {
     RCLCPP_INFO(this->get_logger(), "Debug mode enabled");
   }
@@ -82,40 +62,6 @@ void JoyControllerComponent::loadParameters() {
   declare_parameter("angular_z_axis", 3);
   get_parameter("angular_z_axis", angular_z_axis_);
 
-  // Right stick axis for servo control
-  declare_parameter("right_stick_x_axis", 2);
-  get_parameter("right_stick_x_axis", right_stick_x_axis_);
-
-  // Button mapping for servo shot
-  declare_parameter("servo_shot_button_1", 1);
-  get_parameter("servo_shot_button_1", servo_shot_button_1_);
-
-  declare_parameter("servo_shot_button_2", 0);
-  get_parameter("servo_shot_button_2", servo_shot_button_2_);
-
-  // Servo control parameters
-  declare_parameter("servo_min_position", 0);
-  get_parameter("servo_min_position", servo_min_position_);
-
-  declare_parameter("servo_max_position", 4096);
-  get_parameter("servo_max_position", servo_max_position_);
-
-  declare_parameter("servo_center_position", 2048);
-  get_parameter("servo_center_position", servo_center_position_);
-
-  declare_parameter("servo_deadzone_threshold", 0.1);
-  get_parameter("servo_deadzone_threshold", servo_deadzone_threshold_);
-
-  declare_parameter("servo_increment_rate", 10.0);
-  get_parameter("servo_increment_rate", servo_increment_rate_);
-
-  // Servo shot positions
-  declare_parameter("servo_shot_position_1", 1024);
-  get_parameter("servo_shot_position_1", servo_shot_position_1_);
-
-  declare_parameter("servo_shot_position_2", 3072);
-  get_parameter("servo_shot_position_2", servo_shot_position_2_);
-
   // Debug mode
   declare_parameter("debug_mode", false);
   get_parameter("debug_mode", debug_mode_);
@@ -135,10 +81,8 @@ void JoyControllerComponent::joyCallback(const sensor_msgs::msg::Joy::SharedPtr 
 
   // Update button states and process button actions
   updateButtonStates(msg);
-  processButtonActions();
 
   publishTwist(msg);
-  publishServoPosition(msg);
 }
 
 void JoyControllerComponent::updateButtonStates(const sensor_msgs::msg::Joy::SharedPtr msg) {
@@ -171,39 +115,9 @@ void JoyControllerComponent::updateButtonStates(const sensor_msgs::msg::Joy::Sha
   }
 }
 
-void JoyControllerComponent::processButtonActions() {
-  // Servo shot button 1
-  if (isButtonJustPressed(servo_shot_button_1_)) {
-    publishServoShot(servo_shot_position_1_);
-    if (debug_mode_) {
-      RCLCPP_INFO(this->get_logger(), "Button %d pressed: servo shot position %d",
-                  servo_shot_button_1_, servo_shot_position_1_);
-    }
-  }
-
-  // Servo shot button 2
-  if (isButtonJustPressed(servo_shot_button_2_)) {
-    publishServoShot(servo_shot_position_2_);
-    if (debug_mode_) {
-      RCLCPP_INFO(this->get_logger(), "Button %d pressed: servo shot position %d",
-                  servo_shot_button_2_, servo_shot_position_2_);
-    }
-  }
-}
-
 bool JoyControllerComponent::isButtonJustPressed(int button_index) {
   auto it = button_states_.find(button_index);
   return (it != button_states_.end()) && (it->second.button_state == ButtonState::PRESSED);
-}
-
-void JoyControllerComponent::publishServoShot(int position) {
-  auto servo_msg = std_msgs::msg::Int32();
-  servo_msg.data = position;
-  servo_shot_pub_->publish(servo_msg);
-
-  if (debug_mode_) {
-    RCLCPP_INFO(this->get_logger(), "Published servo shot position: %d", position);
-  }
 }
 
 void JoyControllerComponent::publishTwist(const sensor_msgs::msg::Joy::SharedPtr msg) {
@@ -233,45 +147,6 @@ void JoyControllerComponent::publishTwist(const sensor_msgs::msg::Joy::SharedPtr
   }
 }
 
-void JoyControllerComponent::publishServoPosition(const sensor_msgs::msg::Joy::SharedPtr msg) {
-  // Check if right stick x axis is available
-  if (right_stick_x_axis_ < 0 || static_cast<size_t>(right_stick_x_axis_) >= msg->axes.size()) {
-    return;
-  }
-
-  // Get right stick x value (-1.0 to 1.0)
-  double stick_value = msg->axes[right_stick_x_axis_];
-
-  // Apply deadzone
-  if (std::abs(stick_value) < servo_deadzone_threshold_) {
-    stick_value = 0.0;
-  }
-
-  // Calculate increment based on stick value and increment rate
-  if (stick_value != 0.0) {
-    // Calculate increment (proportional to stick value and increment rate)
-    // Invert the stick value so right decreases and left increases
-    double increment = -stick_value * servo_increment_rate_;
-
-    // Update current servo position
-    current_servo_position_ += static_cast<int>(increment);
-
-    // Clamp to valid range
-    current_servo_position_ =
-        std::max(servo_min_position_, std::min(servo_max_position_, current_servo_position_));
-  }
-
-  // Publish servo position command
-  auto servo_msg = std_msgs::msg::Int32();
-  servo_msg.data = current_servo_position_;
-  servo_position_pub_->publish(servo_msg);
-
-  if (debug_mode_ && message_count_ % 50 == 0) {
-    RCLCPP_INFO(this->get_logger(), "Right stick: %.3f -> Servo position: %d", stick_value,
-                current_servo_position_);
-  }
-}
-
 rcl_interfaces::msg::SetParametersResult JoyControllerComponent::paramCallback(
     const std::vector<rclcpp::Parameter> &params) {
   auto result = std::make_shared<rcl_interfaces::msg::SetParametersResult>();
@@ -288,26 +163,6 @@ rcl_interfaces::msg::SetParametersResult JoyControllerComponent::paramCallback(
         angular_input_ratio_ = param.get_value<double>();
       } else if (name == "debug_mode") {
         debug_mode_ = param.get_value<bool>();
-      } else if (name == "servo_min_position") {
-        servo_min_position_ = param.get_value<int>();
-      } else if (name == "servo_max_position") {
-        servo_max_position_ = param.get_value<int>();
-      } else if (name == "servo_center_position") {
-        servo_center_position_ = param.get_value<int>();
-      } else if (name == "servo_deadzone_threshold") {
-        servo_deadzone_threshold_ = param.get_value<double>();
-      } else if (name == "servo_increment_rate") {
-        servo_increment_rate_ = param.get_value<double>();
-      } else if (name == "right_stick_x_axis") {
-        right_stick_x_axis_ = param.get_value<int>();
-      } else if (name == "servo_shot_button_1") {
-        servo_shot_button_1_ = param.get_value<int>();
-      } else if (name == "servo_shot_button_2") {
-        servo_shot_button_2_ = param.get_value<int>();
-      } else if (name == "servo_shot_position_1") {
-        servo_shot_position_1_ = param.get_value<int>();
-      } else if (name == "servo_shot_position_2") {
-        servo_shot_position_2_ = param.get_value<int>();
       }
     }
 

@@ -85,13 +85,10 @@ private:
 
   // Button handling
   void updateButtonStates(const sensor_msgs::msg::Joy::SharedPtr msg);
-  void processButtonActions();
   bool isButtonJustPressed(int button_index);
 
   // Movement control
   void publishTwist(const sensor_msgs::msg::Joy::SharedPtr msg);
-  void publishServoPosition(const sensor_msgs::msg::Joy::SharedPtr msg);
-  void publishServoShot(int position);
 
   // Parameter management
   void loadParameters();
@@ -99,8 +96,6 @@ private:
   // ROS2 interfaces
   rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_sub_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr twist_pub_;
-  rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr servo_position_pub_;
-  rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr servo_shot_pub_;
 
   // Parameter callback handle
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_handler_ptr_;
@@ -114,26 +109,9 @@ private:
   int linear_x_axis_;
   int linear_y_axis_;
   int angular_z_axis_;
-  int right_stick_x_axis_;
-
-  // Button mapping
-  int servo_shot_button_1_;
-  int servo_shot_button_2_;
 
   // State variables
   std::map<int, ButtonInfo> button_states_;
-
-  // Servo control parameters
-  int servo_min_position_;
-  int servo_max_position_;
-  int servo_center_position_;
-  double servo_deadzone_threshold_;
-  double servo_increment_rate_;
-  int current_servo_position_;
-
-  // Servo shot positions
-  int servo_shot_position_1_;
-  int servo_shot_position_2_;
 
   // Debug and monitoring
   bool debug_mode_;

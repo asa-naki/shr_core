@@ -5,9 +5,9 @@
 joy_controller:
   ros__parameters:
     # Input scaling ratios
-    longitudinal_input_ratio: 1.0 # Forward/backward movement scaling
+    longitudinal_input_ratio: 0.1 # Forward/backward movement scaling
     lateral_input_ratio: 0.3 # Left/right movement scaling (for holonomic robots)
-    angular_input_ratio: 1.0 # Rotational movement scaling
+    angular_input_ratio: 0.1 # Rotational movement scaling
 
     # Controller mapping (button and axis indices)
     linear_x_axis: 1 # Axis for forward/backward (typically left stick Y)
