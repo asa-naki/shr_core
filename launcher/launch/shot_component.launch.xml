@@ -1,0 +1,9 @@
+<launch>
+  <!-- Launch Arguments -->
+
+  <!-- shot component launch -->
+  <include file="$(find-pkg-share motor_control_app)/launch/shot_component.launch.py"/>
+
+  <!-- Include esc_motor_control_python Component Launch -->
+  <include file="$(find-pkg-share esc_motor_control_python)/launch/esc_motor_control_python.launch.xml"/>
+</launch>

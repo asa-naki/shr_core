@@ -19,11 +19,6 @@ def generate_launch_description():
         description='Serial port for servo communication'
     )
     
-    # device_arg = DeclareLaunchArgument(
-    #     'device',
-    #     default_value='/dev/input/js0',
-    #     description='Joystick device'
-    # )
     
     fire_button_arg = DeclareLaunchArgument(
         'fire_button',
@@ -31,18 +26,6 @@ def generate_launch_description():
         description='Fire button number'
     )
     
-    # joyノード
-    # joy_node = Node(
-    #     package='joy',
-    #     executable='joy_node',
-    #     name='joy_node',
-    #     parameters=[{
-    #         'device': LaunchConfiguration('device'),
-    #         'deadzone': 0.05,
-    #         'autorepeat_rate': 20.0
-    #     }],
-    #     output='screen'
-    # )
     
     # shot componentノード
     shot_component_node = Node(
@@ -61,8 +44,6 @@ def generate_launch_description():
     
     return LaunchDescription([
         port_arg,
-        # device_arg,
         fire_button_arg,
-        # # joy_node,
         shot_component_node
     ])
