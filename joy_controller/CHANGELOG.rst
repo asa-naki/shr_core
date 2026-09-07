@@ -2,6 +2,12 @@
 Changelog for package joy_controller
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.2.0 (2026-09-07)
+------------------
+* fix: integrate physical e-stop and competition auto-referee input (`#140 <https://github.com/scramble-robot/questix/issues/140>`_)
+* fix: enhance motor control parameters and improve drive responsiveness (`#141 <https://github.com/scramble-robot/questix/issues/141>`_)
+* Contributors: Akihisa Nagata, Yuichiroh Kobayashi
+
 3.1.0 (2026-07-23)
 ------------------
 * Version bump only for package joy_controller

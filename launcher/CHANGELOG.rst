@@ -2,6 +2,14 @@
 Changelog for package questix_launcher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.2.0 (2026-09-07)
+------------------
+* fix: integrate physical e-stop and competition auto-referee input (`#140 <https://github.com/scramble-robot/questix/issues/140>`_)
+* fix: enhance motor control parameters and improve drive responsiveness (`#141 <https://github.com/scramble-robot/questix/issues/141>`_)
+* feat: drive control architecture refactor (`#142 <https://github.com/scramble-robot/questix/issues/142>`_)
+* build: install launcher config and launch via ament_auto symlink-friendly path
+* Contributors: Akihisa Nagata, Yuichiroh Kobayashi
+
 3.1.0 (2026-07-23)
 ------------------
 * feat: publish wheel odometry and odom->base_link tf from drive component (`#132 <https://github.com/scramble-robot/questix/issues/132>`_)

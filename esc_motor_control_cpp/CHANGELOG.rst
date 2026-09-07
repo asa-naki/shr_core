@@ -2,6 +2,10 @@
 Changelog for package esc_motor_control_cpp
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.2.0 (2026-09-07)
+------------------
+* Version bump only for package esc_motor_control_cpp
+
 3.1.0 (2026-07-23)
 ------------------
 * Version bump only for package esc_motor_control_cpp
