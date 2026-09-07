@@ -2,6 +2,11 @@
 Changelog for package gpio_reader
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.2.0 (2026-09-07)
+------------------
+* fix: integrate physical e-stop and competition auto-referee input (`#140 <https://github.com/scramble-robot/questix/issues/140>`_)
+* Contributors: Yuichiroh Kobayashi
+
 3.1.0 (2026-07-23)
 ------------------
 * Version bump only for package gpio_reader

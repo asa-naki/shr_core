@@ -2,6 +2,12 @@
 Changelog for package motor_control_app
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.2.0 (2026-09-07)
+------------------
+* fix: enhance motor control parameters and improve drive responsiveness (`#141 <https://github.com/scramble-robot/questix/issues/141>`_)
+* feat: drive control architecture refactor (`#142 <https://github.com/scramble-robot/questix/issues/142>`_)
+* Contributors: Akihisa Nagata, Yuichiroh Kobayashi
+
 3.1.0 (2026-07-23)
 ------------------
 * feat: publish wheel odometry and odom->base_link tf from drive component (`#132 <https://github.com/scramble-robot/questix/issues/132>`_)
